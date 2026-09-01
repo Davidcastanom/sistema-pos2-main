@@ -1,0 +1,6 @@
+{
+  "name": "Tienda Mixta La Esquinita - Sistema POS",
+  "description": "Sistema de Punto de Venta (POS) para Tienda Mixta La Esquinita con catálogo por categorías, tarjetas interactivas 3D con stock y precios en pesos colombianos (COP), gestión de ventas, carrito, accesos rápidos y facturación PDF.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
