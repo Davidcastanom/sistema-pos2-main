@@ -121,15 +121,13 @@ export const POSCartDrawer: React.FC<POSCartDrawerProps> = ({
       {/* Account / Order Header */}
       <div className="p-3.5 glass-navy border-b border-white/20 text-white flex items-center justify-between shadow-xs">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-none bg-[#BC6343]/90 border border-white/40 flex items-center justify-center text-white shadow-xs backdrop-blur-xs">
-            <Receipt className="w-4 h-4 text-[#FFF9F0]" />
-          </div>
+          <Receipt className="w-5 h-5 text-[#EB9D52] shrink-0" />
           <div>
             <h2 className="font-bold text-base font-title tracking-tight text-[#FFF9F0] flex items-center gap-2">
               <span>Cuenta de Cobro</span>
               {cart.length > 0 && (
-                <span className="px-1.5 py-0.2 rounded-none bg-[#EB9D52] text-[#222E3A] text-[10px] font-black font-secondary shadow-2xs">
-                  {totalUnits} uds
+                <span className="text-xs font-semibold text-[#EB9D52]">
+                  ({totalUnits} uds)
                 </span>
               )}
             </h2>

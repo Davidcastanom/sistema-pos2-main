@@ -437,9 +437,26 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape' && searchQuery) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setSearchQuery('');
+                  }
+                }}
                 placeholder="Buscar por nombre, cédula o teléfono de cliente..."
-                className="w-full pl-9 pr-3 py-1.5 rounded-none bg-[#FFF9F0] border border-[#214C6A]/30 text-xs text-[#222E3A] placeholder-[#63665B]/60 focus:ring-1 focus:ring-[#214C6A] focus:outline-none"
+                className={`w-full pl-9 ${searchQuery ? 'pr-8' : 'pr-3'} py-1.5 rounded-none bg-[#FFF9F0] border border-[#214C6A]/30 text-xs text-[#222E3A] placeholder-[#63665B]/60 focus:ring-1 focus:ring-[#214C6A] focus:outline-none`}
               />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-rose-600 p-0.5 rounded cursor-pointer transition-colors"
+                  title="Borrar búsqueda"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
 
             <button
@@ -450,7 +467,7 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({
                   : 'bg-[#FFF9F0] text-rose-800 border-rose-300 hover:bg-rose-50'
               }`}
             >
-              {filterDebtOnly ? '✓ Mostrando solo con Deuda' : 'Ver solo con Deuda'}
+              {filterDebtOnly ? 'Mostrando solo con Deuda' : 'Ver solo con Deuda'}
             </button>
           </div>
 
@@ -499,12 +516,12 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({
                               </span>
                               {isOverLimit && (
                                 <span className="block text-[9px] font-black text-rose-800 bg-rose-100 px-1 py-0.2 rounded-none mt-0.5 border border-rose-300">
-                                  ⚠️ Cupo copado
+                                  Cupo copado
                                 </span>
                               )}
                             </div>
                           ) : (
-                            <span className="text-emerald-700 font-bold text-xs">Al día ✓</span>
+                            <span className="text-emerald-700 font-bold text-xs">Al día</span>
                           )}
                         </td>
                         <td className="p-2.5 text-right space-x-1">

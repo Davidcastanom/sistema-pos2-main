@@ -13,3 +13,4 @@ export * from './ReportsModal';
 export * from './SalesHistoryModal';
 export * from './ManagerDashboardModal';
 export * from './LiquidGlassGuideModal';
+export * from './SuppliersModal';

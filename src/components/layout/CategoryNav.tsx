@@ -176,12 +176,12 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({
 
       {/* Header bar for Filters Navigation */}
       <div className="flex items-center justify-between px-1 flex-wrap gap-2">
-        <div className="flex items-center gap-2.5">
-          <span className="text-xs font-extrabold text-[#214C6A] uppercase tracking-wider bg-white/50 backdrop-blur-md px-2.5 py-1 border border-white/60 shadow-2xs">
+        <div className="flex items-center gap-2">
+          <h3 className="text-xs font-bold text-[#214C6A] uppercase tracking-wider">
             Categorías del Inventario
-          </span>
-          <span className="text-[11px] font-bold text-[#56291D] bg-[#EB9D52]/25 px-2.5 py-1 rounded-none border border-[#EB9D52]/40 backdrop-blur-md shadow-2xs">
-            {categories.length} Categorías
+          </h3>
+          <span className="text-xs text-[#63665B] font-medium">
+            ({categories.length})
           </span>
         </div>
 

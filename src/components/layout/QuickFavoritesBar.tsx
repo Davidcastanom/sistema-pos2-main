@@ -39,14 +39,12 @@ export const QuickFavoritesBar: React.FC<QuickFavoritesBarProps> = ({
       {/* Header with Title and Customization Actions */}
       <div className="flex items-center justify-between px-1 flex-wrap gap-2">
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-none bg-white/70 backdrop-blur-md border border-white/80 flex items-center justify-center text-[#214C6A] shadow-xs">
-            <Star className="w-3.5 h-3.5 fill-[#EB9D52] text-[#BC6343]" />
-          </div>
+          <Star className="w-4 h-4 fill-[#EB9D52] text-[#BC6343] shrink-0" />
           <h3 className="text-xs font-bold uppercase tracking-wider text-[#214C6A] font-title">
             Botones Rápidos • Los Más Vendidos
           </h3>
-          <span className="text-[10px] text-[#214C6A] bg-white/60 backdrop-blur-md px-2 py-0.5 rounded-none border border-white/80 hidden sm:inline-block font-bold shadow-2xs">
-            {favoriteProducts.length} botones activos
+          <span className="text-[11px] text-[#63665B] font-medium hidden sm:inline-block">
+            ({favoriteProducts.length} activos)
           </span>
         </div>
 

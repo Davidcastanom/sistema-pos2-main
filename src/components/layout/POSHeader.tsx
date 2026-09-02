@@ -22,7 +22,12 @@ import {
   Package,
   BarChart3,
   Star,
-  Check
+  Check,
+  Truck,
+  ChevronLeft,
+  ChevronRight,
+  Edit3,
+  GripHorizontal
 } from 'lucide-react';
 import { formatCOP, playBeep } from '@/lib/utils';
 import { SaleTransaction, CashShift, ProductItem } from '@/types';
@@ -41,6 +46,7 @@ interface POSHeaderProps {
   onOpenCashShift: () => void;
   onOpenCustomers: () => void;
   onOpenInventoryManager: () => void;
+  onOpenSuppliers?: () => void;
   onOpenReports: () => void;
   onOpenManagerDashboard?: () => void;
   showCategoryGallery: boolean;
@@ -71,6 +77,7 @@ export const POSHeader: React.FC<POSHeaderProps> = ({
   onOpenCashShift,
   onOpenCustomers,
   onOpenInventoryManager,
+  onOpenSuppliers,
   onOpenReports,
   onOpenManagerDashboard,
   showCategoryGallery,
@@ -93,6 +100,116 @@ export const POSHeader: React.FC<POSHeaderProps> = ({
   const [showInlineAdd, setShowInlineAdd] = useState<boolean>(false);
   const [justAddedTitle, setJustAddedTitle] = useState<string | null>(null);
   const [isScrolled, setIsScrolled] = useState<boolean>(false);
+  const navScrollRef = React.useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState<boolean>(false);
+  const [canScrollRight, setCanScrollRight] = useState<boolean>(false);
+  const [hasOverflow, setHasOverflow] = useState<boolean>(false);
+  const [scrollProgress, setScrollProgress] = useState<number>(0);
+
+  // Drag-to-scroll ("agarre y desplazamiento")
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const isMouseDownRef = React.useRef<boolean>(false);
+  const startXRef = React.useRef<number>(0);
+  const scrollLeftStartRef = React.useRef<number>(0);
+  const hasMovedRef = React.useRef<boolean>(false);
+
+  const checkNavScroll = React.useCallback(() => {
+    if (navScrollRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = navScrollRef.current;
+      const maxScroll = Math.max(0, scrollWidth - clientWidth);
+      setHasOverflow(maxScroll > 10);
+      setCanScrollLeft(scrollLeft > 6);
+      setCanScrollRight(scrollLeft < maxScroll - 6);
+      setScrollProgress(maxScroll > 0 ? Math.min(100, Math.max(0, (scrollLeft / maxScroll) * 100)) : 0);
+    }
+  }, []);
+
+  useEffect(() => {
+    checkNavScroll();
+    const el = navScrollRef.current;
+    if (el) {
+      el.addEventListener('scroll', checkNavScroll, { passive: true });
+    }
+    window.addEventListener('resize', checkNavScroll);
+    return () => {
+      if (el) el.removeEventListener('scroll', checkNavScroll);
+      window.removeEventListener('resize', checkNavScroll);
+    };
+  }, [checkNavScroll]);
+
+  // Translate vertical wheel on navigation into smooth horizontal scrolling
+  useEffect(() => {
+    const el = navScrollRef.current;
+    if (!el) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      if (el.scrollWidth <= el.clientWidth) return;
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        e.preventDefault();
+        el.scrollLeft += e.deltaY * 0.9;
+        checkNavScroll();
+      }
+    };
+
+    el.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      el.removeEventListener('wheel', handleWheel);
+    };
+  }, [checkNavScroll]);
+
+  const handleNavScroll = (dir: 'left' | 'right') => {
+    if (navScrollRef.current) {
+      const offset = dir === 'left' ? -220 : 220;
+      navScrollRef.current.scrollBy({ left: offset, behavior: 'smooth' });
+      setTimeout(checkNavScroll, 280);
+    }
+  };
+
+  // Mouse drag-to-scroll handlers
+  const handleNavMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return; // Only primary click
+    if (!navScrollRef.current) return;
+    isMouseDownRef.current = true;
+    hasMovedRef.current = false;
+    startXRef.current = e.pageX - navScrollRef.current.offsetLeft;
+    scrollLeftStartRef.current = navScrollRef.current.scrollLeft;
+  };
+
+  const handleNavMouseMove = (e: React.MouseEvent) => {
+    if (!isMouseDownRef.current || !navScrollRef.current) return;
+    const x = e.pageX - navScrollRef.current.offsetLeft;
+    const walk = (x - startXRef.current);
+    if (Math.abs(walk) > 5) {
+      hasMovedRef.current = true;
+      setIsDragging(true);
+      e.preventDefault();
+    }
+    navScrollRef.current.scrollLeft = scrollLeftStartRef.current - walk;
+    checkNavScroll();
+  };
+
+  const handleNavMouseUp = () => {
+    isMouseDownRef.current = false;
+    setTimeout(() => {
+      setIsDragging(false);
+      hasMovedRef.current = false;
+    }, 60);
+    checkNavScroll();
+  };
+
+  // Prevents accidental click on items if user was performing a drag movement
+  const safeNavClick = (action: () => void) => (e: React.MouseEvent) => {
+    if (isDragging || hasMovedRef.current) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    action();
+  };
+
+  const lowStockCount = useMemo(() => {
+    return products.filter((p) => p.stock <= (p.minStock || 10)).length;
+  }, [products]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -154,9 +271,18 @@ export const POSHeader: React.FC<POSHeaderProps> = ({
         onAddToCart(topMatch);
         playBeep();
         setJustAddedTitle(topMatch.title);
+        onSearchChange('');
         setTimeout(() => setJustAddedTitle(null), 2500);
       }
-    } else if (e.key === 'Escape') {
+    } else if (
+      e.key === 'Escape' || 
+      (e.altKey && (e.key === 'b' || e.key === 'B' || e.key === 'c' || e.key === 'C')) ||
+      (e.ctrlKey && (e.key === 'Backspace' || e.key === 'Delete' || e.key === 'k' || e.key === 'K')) ||
+      (e.shiftKey && e.key === 'Escape')
+    ) {
+      // Acceso rápido de teclado: borrado instantáneo del motor de búsqueda
+      e.preventDefault();
+      e.stopPropagation();
       onSearchChange('');
     }
   };
@@ -174,148 +300,237 @@ export const POSHeader: React.FC<POSHeaderProps> = ({
   const isShiftOpen = currentShift && currentShift.status === 'open';
 
   return (
-    <header className={`sticky top-0 z-30 transition-all duration-300 ${
-      isScrolled ? 'editorial-glass-header is-scrolled' : 'editorial-glass-header'
+    <header className={`sticky top-0 z-40 transition-all duration-300 modern-menu-header ${
+      isScrolled ? 'is-scrolled' : ''
     }`}>
-      {/* Top Banner with Store Info, Modules & Status */}
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-2.5 flex flex-wrap items-center justify-between gap-3">
-        {/* Store Brand & Cashier */}
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-none bg-[#BC6343] flex items-center justify-center text-[#FFF9F0] border border-white/40 shrink-0 shadow-[0_4px_12px_rgba(188,99,67,0.35),inset_0_1px_1px_rgba(255,255,255,0.7)]">
-            <Store className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="font-bold text-base sm:text-lg text-[#FFF9F0] tracking-normal font-title drop-shadow-xs">
-                Tienda Mixta <span className="text-[#EB9D52] italic">La Esquinita</span>
-              </h1>
-              <span className={`hidden md:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-none text-[10px] font-black border backdrop-blur-md tracking-wider uppercase ${
-                isShiftOpen
-                  ? 'bg-emerald-900/60 text-emerald-300 border-emerald-400/40 shadow-2xs'
-                  : 'bg-rose-900/60 text-rose-300 border-rose-400/40 shadow-2xs'
-              }`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${isShiftOpen ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`} />
-                {isShiftOpen ? 'Caja Abierta' : 'Caja Cerrada'}
+      {/* 64px Modern Glass Navigation Bar with Inter Typography */}
+      <div className="max-w-7xl mx-auto modern-menu-bar">
+        {/* Left: Brand Logo with Dot, Circular Icon and Cashier Status */}
+        <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+          <div className="modern-logo cursor-default" title="Tienda Mixta La Esquinita">
+            {/* Circular Official Brand Avatar (Enlarged and refined) */}
+            <div className="relative w-10 h-10 sm:w-11 sm:h-11 rounded-full p-0.5 bg-gradient-to-tr from-[#EB9D52] via-[#BC6343] to-[#FFF9F0] shrink-0 shadow-md flex items-center justify-center transition-transform hover:scale-105">
+              <div className="w-full h-full rounded-full bg-[#1b2631] flex items-center justify-center overflow-hidden">
+                <img 
+                  src="https://res.cloudinary.com/unhl90nr/image/upload/v1788376390/logo_sl8qs4.png" 
+                  alt="Logo Tienda Mixta La Esquinita" 
+                  className="w-full h-full object-contain p-0.5"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+            </div>
+
+            {/* Brand Title */}
+            <div className="flex flex-col">
+              <span className="font-bold text-[17px] sm:text-[19px] tracking-[-0.01em] text-[#FFF9F0] font-sans leading-tight">
+                La Esquinita
+              </span>
+              <span className="text-[9px] sm:text-[10px] text-[#F6E1C6]/75 font-medium tracking-wide leading-none hidden sm:block">
+                Tienda Mixta
               </span>
             </div>
-            <p className="text-[10px] text-[#F6E1C6]/90 flex items-center gap-2 tracking-[0.015em]">
-              <span>Cajero: <strong className="text-[#FFF9F0] font-bold">{currentShift?.cashierName || 'Don Esteban'}</strong></span>
-              <span className="text-white/30">•</span>
-              <span className="flex items-center gap-1 text-[#EB9D52] font-mono text-[10px] font-semibold">
-                <Clock className="w-3 h-3 text-[#EB9D52]" />
-                {currentTime || '10:00 AM'}
-              </span>
-            </p>
+          </div>
+
+          {/* Shift / Cashier Pill with direct edit trigger */}
+          <div className="flex items-center gap-1.5 pl-1.5 border-l border-white/15 shrink-0">
+            <button
+              type="button"
+              onClick={onOpenCashShift}
+              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-medium border backdrop-blur-md transition-all hover:scale-105 cursor-pointer ${
+                isShiftOpen
+                  ? 'bg-emerald-900/40 text-emerald-300 border-emerald-500/30 hover:bg-emerald-800/50'
+                  : 'bg-rose-900/40 text-rose-300 border-rose-500/30 hover:bg-rose-800/50'
+              }`}
+              title="Estado de caja: Clic para abrir arqueo, cambiar cajero o inicio de caja"
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${isShiftOpen ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`} />
+              <span>{isShiftOpen ? 'Caja' : 'Cerrada'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={onOpenCashShift}
+              className="text-[10px] sm:text-[11px] text-[#F6E1C6]/90 hover:text-white font-sans flex items-center gap-1 transition-colors px-1 py-0.5 rounded hover:bg-white/10 cursor-pointer"
+              title="Encargado de turno: Clic para editar cajero o base inicial de caja"
+            >
+              <span className="font-semibold max-w-[70px] sm:max-w-[120px] truncate">{currentShift?.cashierName || 'Don Esteban'}</span>
+              <Edit3 className="w-2.5 h-2.5 text-[#EB9D52]" />
+            </button>
           </div>
         </div>
 
-        {/* Professional Navigation Modules & Quick Actions Bar with Subtle Optical Dividers */}
-        <div className="flex items-center flex-wrap gap-1.5 sm:gap-2">
-          {/* Módulo 1: Control de Caja & Arqueo */}
-          <button
-            onClick={onOpenCashShift}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-none text-xs font-bold cursor-pointer transition-all ${
-              isShiftOpen
-                ? 'editorial-nav-item text-white hover:border-[#EB9D52]/60'
-                : 'bg-rose-700/90 hover:bg-rose-800 text-white border border-rose-400 animate-pulse'
-            }`}
-            title="Abrir/Cerrar Turno, Arqueo de Caja y Control de Gastos Menores"
-          >
-            <Vault className="w-3.5 h-3.5 text-[#EB9D52]" />
-            <span className="hidden sm:inline">Caja & Arqueo</span>
-          </button>
-
-          {/* Módulo 2: Clientes & Fiados */}
-          <button
-            onClick={onOpenCustomers}
-            className="editorial-nav-item flex items-center gap-1.5 px-3 py-1.5 rounded-none text-[#FFF9F0] text-xs font-bold cursor-pointer hover:border-[#EB9D52]/60"
-            title="Directorio de clientes, cartera pendiente y abonos de fiados"
-          >
-            <Users className="w-3.5 h-3.5 text-[#EB9D52]" />
-            <span className="hidden sm:inline">Clientes / Fiados</span>
-          </button>
-
-          {/* Módulo 3: Inventario & Kardex */}
-          <button
-            onClick={onOpenInventoryManager}
-            className="editorial-nav-item flex items-center gap-1.5 px-3 py-1.5 rounded-none text-[#FFF9F0] text-xs font-bold cursor-pointer hover:border-[#EB9D52]/60"
-            title="Gestión de inventario, márgenes de ganancia, exportar/importar Excel"
-          >
-            <Package className="w-3.5 h-3.5 text-[#EB9D52]" />
-            <span className="hidden sm:inline">Kardex</span>
-          </button>
-
-          {/* Módulo Categorías */}
-          {onOpenManageCategories && (
-            <button
-              onClick={onOpenManageCategories}
-              className="editorial-nav-item flex items-center gap-1.5 px-3 py-1.5 rounded-none text-[#FFF9F0] text-xs font-bold cursor-pointer hover:border-[#EB9D52]/60"
-              title="Añadir, modificar y organizar categorías de productos"
-            >
-              <Layers className="w-3.5 h-3.5 text-[#EB9D52]" />
-              <span className="hidden md:inline">Categorías</span>
-            </button>
+        {/* Center: Navigation Links Scroll Track with Grab & Drag and Carousel Navigation */}
+        <div 
+          className="modern-nav-links-wrapper group"
+          title="Arrastra con el ratón o usa las flechas del carrusel para explorar todos los apartados"
+        >
+          {/* Left Carousel Paddle & Fade Edge Mask */}
+          {canScrollLeft && (
+            <>
+              <div className="modern-nav-fade-left" />
+              <button
+                type="button"
+                onClick={() => handleNavScroll('left')}
+                className="modern-nav-scroll-btn modern-nav-scroll-left"
+                title="Desplazar carrusel a la izquierda (o arrastra con el ratón)"
+                aria-label="Anterior"
+              >
+                <ChevronLeft className="w-4 h-4 text-[#FFF9F0]" />
+              </button>
+            </>
           )}
 
-          {/* Sutil divisor vertical translúcido */}
-          <div className="hidden sm:block editorial-divider-v" />
-
-          {/* Módulo + Producto (CTA Secundario) */}
-          <button
-            onClick={onOpenAddProduct}
-            className="editorial-cta-emerald flex items-center gap-1.5 px-3 py-1.5 rounded-none text-[#FFF9F0] text-xs font-bold cursor-pointer"
-            title="Registrar nuevo producto al catálogo (F9)"
+          <nav 
+            ref={navScrollRef}
+            className={`modern-nav-links ${isDragging ? 'is-dragging' : ''}`}
+            onMouseDown={handleNavMouseDown}
+            onMouseMove={handleNavMouseMove}
+            onMouseUp={handleNavMouseUp}
+            onMouseLeave={handleNavMouseUp}
           >
-            <PlusCircle className="w-3.5 h-3.5 text-[#EB9D52]" />
-            <span className="hidden md:inline">+ Producto</span>
-          </button>
-
-          {/* Módulo 4: Reportes Financieros */}
-          <button
-            onClick={onOpenReports}
-            className="editorial-nav-item flex items-center gap-1.5 px-3 py-1.5 rounded-none text-[#FFF9F0] text-xs font-bold cursor-pointer hover:border-[#EB9D52]/60"
-            title="Estadísticas de ventas, ganancias netas y productos más vendidos"
-          >
-            <BarChart3 className="w-3.5 h-3.5 text-[#EB9D52]" />
-            <span className="hidden sm:inline">Reportes</span>
-          </button>
-
-          {/* Sutil divisor vertical translúcido */}
-          <div className="hidden lg:block editorial-divider-v" />
-
-          {/* Módulo 5: Dashboard Gerencial ("Semáforo y Bolsillo" - CTA Destacado con relieve editorial) */}
-          {onOpenManagerDashboard && (
+            {/* Módulo 1: Control de Caja & Arqueo */}
             <button
-              onClick={onOpenManagerDashboard}
-              className="editorial-cta-terracotta flex items-center gap-1.5 px-3 py-1.5 rounded-none text-[#FFF9F0] text-xs font-black cursor-pointer shadow-sm active:scale-95"
-              title="Dashboard Gerencial Simplificado: Semáforo de inventario, meta de punto de equilibrio y plata en caja"
+              onClick={safeNavClick(onOpenCashShift)}
+              className={`modern-nav-item ${
+                !isShiftOpen ? 'border-rose-400/50 bg-rose-950/40 text-rose-200' : ''
+              }`}
+              title="Abrir/Cerrar Turno, Arqueo de Caja y Gastos"
             >
-              <Store className="w-3.5 h-3.5 text-[#FFF9F0]" />
-              <span className="inline font-bold">Semáforo & Bolsillo</span>
+              <Vault className="w-4 h-4 text-[#EB9D52]" />
+              <span>Caja & Arqueo</span>
             </button>
+
+            {/* Módulo 2: Clientes & Fiados */}
+            <button
+              onClick={safeNavClick(onOpenCustomers)}
+              className="modern-nav-item"
+              title="Directorio de clientes, cartera y abonos"
+            >
+              <Users className="w-4 h-4 text-[#EB9D52]" />
+              <span>Clientes</span>
+            </button>
+
+            {/* Módulo 3: Inventario & Kardex */}
+            <button
+              onClick={safeNavClick(onOpenInventoryManager)}
+              className="modern-nav-item"
+              title="Gestión de inventario, stock y márgenes"
+            >
+              <Package className="w-4 h-4 text-[#EB9D52]" />
+              <span>Kardex</span>
+            </button>
+
+            {/* Módulo Proveedores & Abastecimiento */}
+            {onOpenSuppliers && (
+              <button
+                onClick={safeNavClick(onOpenSuppliers)}
+                className="modern-nav-item"
+                title="Trazabilidad de proveedores, pedidos y costos"
+              >
+                <Truck className="w-4 h-4 text-[#EB9D52]" />
+                <span>Proveedores</span>
+                {lowStockCount > 0 && (
+                  <span
+                    className="bg-[#BC6343] text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full tracking-tight ml-0.5 shadow-2xs"
+                    title={`${lowStockCount} productos requieren reabastecimiento`}
+                  >
+                    {lowStockCount}
+                  </span>
+                )}
+              </button>
+            )}
+
+            {/* Módulo Categorías (Visibilidad garantizada para todos los usuarios) */}
+            {onOpenManageCategories && (
+              <button
+                onClick={safeNavClick(onOpenManageCategories)}
+                className="modern-nav-item"
+                title="Organizar categorías de productos"
+              >
+                <Layers className="w-4 h-4 text-[#EB9D52]" />
+                <span>Categorías</span>
+              </button>
+            )}
+
+            {/* Módulo Reportes (Visibilidad garantizada para todos los usuarios) */}
+            <button
+              onClick={safeNavClick(onOpenReports)}
+              className="modern-nav-item"
+              title="Estadísticas de ventas y ganancias"
+            >
+              <BarChart3 className="w-4 h-4 text-[#EB9D52]" />
+              <span>Reportes</span>
+            </button>
+
+            {/* Módulo Semáforo & Bolsillo (Dashboard Gerencial - Visibilidad garantizada) */}
+            {onOpenManagerDashboard && (
+              <button
+                onClick={safeNavClick(onOpenManagerDashboard)}
+                className="modern-terracotta-btn"
+                title="Dashboard Gerencial: Semáforo de inventario, punto de equilibrio y plata en caja"
+              >
+                <Store className="w-3.5 h-3.5 text-[#FFF9F0]" />
+                <span className="font-semibold">Semáforo & Bolsillo</span>
+              </button>
+            )}
+          </nav>
+
+          {/* Right Carousel Paddle & Fade Edge Mask */}
+          {canScrollRight && (
+            <>
+              <div className="modern-nav-fade-right" />
+              <button
+                type="button"
+                onClick={() => handleNavScroll('right')}
+                className="modern-nav-scroll-btn modern-nav-scroll-right"
+                title="Desplazar carrusel a la derecha (o arrastra con el ratón)"
+                aria-label="Siguiente"
+              >
+                <ChevronRight className="w-4 h-4 text-[#FFF9F0]" />
+              </button>
+            </>
           )}
 
-          {/* Quick Amount Button */}
+          {/* Carousel Mini Progress Indicator Track */}
+          {hasOverflow && (
+            <div 
+              className="modern-nav-carousel-track flex items-center justify-center opacity-70 group-hover:opacity-100 transition-opacity" 
+              title={`Posición carrusel: ${Math.round(scrollProgress)}% - Arrastra para explorar`}
+            >
+              <div 
+                className="modern-nav-carousel-thumb" 
+                style={{ 
+                  width: '35%', 
+                  transform: `translateX(${(scrollProgress / 100) * 185}%)` 
+                }} 
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Right: Auth & Action Buttons (Monto, Ventas Hoy, Galería, + Producto) */}
+        <div className="modern-auth">
+          {/* Quick Amount (Ghost Button with Glass Hover) */}
           <button
             onClick={onOpenQuickAmount}
-            className="editorial-nav-item flex items-center gap-1 px-2.5 py-1.5 rounded-none text-[#FFF9F0] text-xs font-bold cursor-pointer"
+            className="modern-ghost-btn"
             title="Venta rápida por monto (F8)"
           >
             <Zap className="w-3.5 h-3.5 text-[#EB9D52]" />
-            <span>Monto ($)</span>
+            <span className="hidden sm:inline">Monto ($)</span>
+            <span className="sm:hidden font-bold">$</span>
           </button>
 
-          {/* Daily Sales Quick Pill */}
+          {/* Daily Sales Quick Pill (Ghost Button with Glass Hover) */}
           <button
             onClick={onOpenHistory}
-            className="editorial-nav-item flex items-center gap-1.5 px-2.5 py-1.5 rounded-none text-[#FFF9F0] text-xs font-medium cursor-pointer"
+            className="modern-ghost-btn"
             title="Ver historial de facturas del día (F10)"
           >
             <History className="w-3.5 h-3.5 text-[#EB9D52]" />
-            <span className="font-black text-xs font-secondary">
+            <span className="font-bold text-xs font-mono">
               {formatCOP(totalSalesToday)}
             </span>
-            <span className="text-[10px] bg-[#EB9D52] text-[#222E3A] font-black px-1.5 py-0.2 rounded-none">
+            <span className="text-[10px] bg-[#EB9D52] text-[#1b2631] font-extrabold px-1.5 py-0.2 rounded-full">
               {transactionsToday.length}
             </span>
           </button>
@@ -323,21 +538,29 @@ export const POSHeader: React.FC<POSHeaderProps> = ({
           {/* Toggle Category Gallery */}
           <button
             onClick={onToggleCategoryGallery}
-            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-none text-xs font-bold transition-all cursor-pointer ${
-              showCategoryGallery
-                ? 'bg-[#EB9D52] text-[#222E3A] border border-[#FFF9F0] shadow-sm'
-                : 'editorial-nav-item text-[#FFF9F0]'
+            className={`modern-ghost-btn ${
+              showCategoryGallery ? 'border-white/40 bg-white/15' : ''
             }`}
             title="Ver / ocultar galería de categorías"
           >
-            <Layers className="w-3.5 h-3.5" />
-            <span className="hidden lg:inline">Galería</span>
+            <LayoutGrid className="w-3.5 h-3.5 text-[#EB9D52]" />
+            <span className="hidden md:inline">Galería</span>
+          </button>
+
+          {/* + Producto (Outlined Button with Glass Hover) */}
+          <button
+            onClick={onOpenAddProduct}
+            className="modern-outlined-btn"
+            title="Registrar nuevo producto al catálogo (F9)"
+          >
+            <Plus className="w-4 h-4 stroke-[2.5]" />
+            <span>+ Producto</span>
           </button>
         </div>
       </div>
 
-      {/* Search & Barcode Scan Bar with Editorial Glass Container */}
-      <div className="editorial-search-bar px-3 sm:px-4 py-2.5">
+      {/* Search & Barcode Scan Toolbar with Modern Glass Harmonization */}
+      <div className="editorial-search-bar px-3 sm:px-6 lg:px-8 py-2 border-t border-white/10">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-stretch gap-2">
           {/* Main Search Input */}
           <div className="relative flex-1">
@@ -348,20 +571,10 @@ export const POSHeader: React.FC<POSHeaderProps> = ({
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
               onKeyDown={handleSearchKeyDown}
-              placeholder="🔍 Buscar o pegar nombre de producto (ej: Arroz, Leche, Huevos, Jabón, Aceite...)"
-              className="w-full pl-9 pr-24 py-2 rounded-none bg-[#214C6A]/90 border border-white/25 text-[#FFF9F0] placeholder-[#F6E1C6]/70 text-xs font-medium focus:ring-1 focus:ring-[#EB9D52] focus:border-[#EB9D52] focus:outline-none shadow-inner backdrop-blur-sm"
+              placeholder="Buscar o pegar nombre de producto (ej: Arroz, Leche, Huevos, Jabón, Aceite...)"
+              className="w-full pl-9 pr-24 sm:pr-28 py-1.5 rounded-lg bg-[#1a3d55]/80 border border-white/20 text-[#FFF9F0] placeholder-[#F6E1C6]/70 text-xs font-sans font-normal focus:ring-1 focus:ring-[#EB9D52] focus:border-[#EB9D52] focus:outline-none shadow-inner backdrop-blur-md transition-all"
             />
-            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => onSearchChange('')}
-                  className="text-[#F6E1C6]/80 hover:text-white text-xs font-bold px-1.5 py-0.5 rounded-none hover:bg-black/20 cursor-pointer"
-                  title="Limpiar búsqueda (Esc)"
-                >
-                  ✕
-                </button>
-              )}
+            <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
               {topMatch && (
                 <button
                   type="button"
@@ -373,14 +586,14 @@ export const POSHeader: React.FC<POSHeaderProps> = ({
                       setTimeout(() => setJustAddedTitle(null), 2500);
                     }
                   }}
-                  className="px-1.5 py-0.5 rounded-none bg-[#BC6343] hover:bg-[#964937] text-white text-[10px] font-extrabold flex items-center gap-1 cursor-pointer shadow-xs border border-white/30"
+                  className="px-2 py-0.5 rounded-md bg-[#BC6343] hover:bg-[#964937] text-white text-[10px] font-bold flex items-center gap-1 cursor-pointer shadow-xs border border-white/30"
                   title="Presiona Enter o haz clic para agregar directo a la factura"
                 >
                   <Zap className="w-3 h-3 text-[#EB9D52]" />
                   <span>Enter</span>
                 </button>
               )}
-              <span className="hidden sm:inline-block px-1.5 py-0.2 rounded-none bg-[#1a3d55]/90 border border-white/20 text-[9px] font-mono text-[#EB9D52]">
+              <span className="hidden sm:inline-block px-1.5 py-0.2 rounded-md bg-[#214C6A]/90 border border-white/20 text-[9px] font-mono text-[#EB9D52]">
                 F2
               </span>
             </div>
@@ -394,15 +607,21 @@ export const POSHeader: React.FC<POSHeaderProps> = ({
               type="text"
               value={barcodeInput}
               onChange={(e) => setBarcodeInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  e.preventDefault();
+                  setBarcodeInput('');
+                }
+              }}
               placeholder="Pistola / Código de barras"
-              className="w-full pl-9 pr-24 py-2 rounded-none bg-[#214C6A]/90 border border-white/25 text-[#FFF9F0] placeholder-[#F6E1C6]/70 text-xs font-mono focus:ring-1 focus:ring-[#EB9D52] focus:border-[#EB9D52] focus:outline-none shadow-inner backdrop-blur-sm"
+              className="w-full pl-9 pr-20 py-1.5 rounded-lg bg-[#1a3d55]/80 border border-white/20 text-[#FFF9F0] placeholder-[#F6E1C6]/70 text-xs font-mono focus:ring-1 focus:ring-[#EB9D52] focus:border-[#EB9D52] focus:outline-none shadow-inner backdrop-blur-md transition-all"
             />
             <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-1">
               {onOpenScannerModal && (
                 <button
                   type="button"
                   onClick={onOpenScannerModal}
-                  className="p-1 rounded-none bg-[#1a3d55] hover:bg-[#0f2433] border border-white/25 text-[#EB9D52] hover:text-white transition-all cursor-pointer"
+                  className="p-1 rounded-md bg-[#214C6A] hover:bg-[#15344a] border border-white/25 text-[#EB9D52] hover:text-white transition-all cursor-pointer"
                   title="Lector con cámara (F3)"
                 >
                   <Camera className="w-3.5 h-3.5" />
@@ -410,7 +629,7 @@ export const POSHeader: React.FC<POSHeaderProps> = ({
               )}
               <button
                 type="submit"
-                className="px-2 py-1 rounded-none bg-[#BC6343] hover:bg-[#964937] text-[#FFF9F0] text-[11px] font-bold cursor-pointer shadow-xs border border-white/20"
+                className="px-2.5 py-1 rounded-md bg-[#BC6343] hover:bg-[#964937] text-[#FFF9F0] text-[11px] font-bold cursor-pointer shadow-xs border border-white/20"
               >
                 Escanear
               </button>
@@ -462,7 +681,7 @@ export const POSHeader: React.FC<POSHeaderProps> = ({
                   title="Fijar este producto en los botones de acceso rápido superiores"
                 >
                   <Star className={`w-3.5 h-3.5 ${isTopMatchFavorite ? 'fill-amber-900 text-amber-900' : 'text-amber-300'}`} />
-                  <span>{isTopMatchFavorite ? 'En Botones Rápidos ⭐' : 'Fijar a Botones Rápidos ⭐'}</span>
+                  <span>{isTopMatchFavorite ? 'En Botones Rápidos' : 'Fijar a Botones Rápidos'}</span>
                 </button>
               )}
 

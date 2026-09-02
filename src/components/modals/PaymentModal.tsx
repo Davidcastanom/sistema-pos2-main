@@ -15,7 +15,8 @@ import {
   Percent,
   Receipt,
   Users,
-  RotateCcw
+  RotateCcw,
+  Info
 } from 'lucide-react';
 
 interface PaymentModalProps {
@@ -389,7 +390,10 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                 {/* Smart Change Bill Breakdown */}
                 {!isInsufficientCash && change > 0 && changeBreakdown.length > 0 && (
                   <div className="mt-2 pt-2 border-t border-emerald-200 text-[11px] text-emerald-800">
-                    <strong className="block font-semibold mb-0.5">💡 Sugerencia de billetes a devolver:</strong>
+                    <strong className="flex items-center gap-1 font-semibold mb-0.5">
+                      <Info className="w-3 h-3 text-emerald-700 shrink-0" />
+                      <span>Sugerencia de billetes a devolver:</span>
+                    </strong>
                     <div className="flex flex-wrap gap-1.5 mt-1">
                       {changeBreakdown.map((item, idx) => (
                         <span

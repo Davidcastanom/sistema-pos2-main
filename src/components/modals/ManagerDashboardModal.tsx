@@ -159,8 +159,13 @@ export const ManagerDashboardModal: React.FC<ManagerDashboardModalProps> = ({
         {/* Modal Header */}
         <div className="bg-[#214C6A]/95 backdrop-blur-xl px-4 sm:px-6 py-3.5 sm:py-4 text-[#FFF9F0] flex items-center justify-between border-b-2 border-[#BC6343] shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-[#BC6343]/90 backdrop-blur-md border border-white/30 flex items-center justify-center text-[#FFF9F0] shadow-sm">
-              <Store className="w-5 h-5 text-[#EB9D52]" />
+            <div className="w-10 h-10 rounded-full bg-[#1a3d55] border border-white/30 flex items-center justify-center text-[#FFF9F0] shadow-sm overflow-hidden p-0.5 shrink-0">
+              <img 
+                src="https://res.cloudinary.com/unhl90nr/image/upload/v1788376390/logo_sl8qs4.png" 
+                alt="Logo Tienda Mixta" 
+                className="w-full h-full object-contain"
+                referrerPolicy="no-referrer"
+              />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -182,13 +187,14 @@ export const ManagerDashboardModal: React.FC<ManagerDashboardModalProps> = ({
             <div className="flex items-center bg-[#1a3d55]/90 backdrop-blur-md p-1 border border-white/15">
               <button
                 onClick={() => setActiveTab('dashboard')}
-                className={`px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+                className={`px-3 py-1.5 text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
                   activeTab === 'dashboard'
                     ? 'bg-[#EB9D52] text-[#222E3A] shadow-xs'
                     : 'text-[#FFF9F0] hover:text-white'
                 }`}
               >
-                📊 Mi Negocio Hoy
+                <TrendingUp className="w-3.5 h-3.5" />
+                <span>Mi Negocio Hoy</span>
               </button>
               <button
                 onClick={() => setActiveTab('costs')}

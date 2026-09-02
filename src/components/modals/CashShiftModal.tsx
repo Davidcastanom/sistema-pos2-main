@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CashShift, CashMovement, SaleTransaction, DebtPayment } from '@/types';
 import { formatCOP } from '@/lib/utils';
 import { 
@@ -17,8 +17,22 @@ import {
   Lock,
   Unlock,
   Coins,
-  History
+  History,
+  Edit3,
+  User,
+  UserCheck,
+  Check,
+  Sparkles
 } from 'lucide-react';
+
+const POPULAR_CASHIERS = ['Don Esteban', 'Doña Gloria', 'Mateo', 'Valentina', 'Camilo'];
+const POPULAR_BASES = [50000, 100000, 150000, 200000, 300000, 500000];
+const POPULAR_REASONS = [
+  'Relevo de turno',
+  'Ajuste de base matutina',
+  'Corrección de conteo',
+  'Monedas para cambio y vueltas'
+];
 
 interface CashShiftModalProps {
   isOpen: boolean;
@@ -28,6 +42,7 @@ interface CashShiftModalProps {
   transactions?: SaleTransaction[];
   debtPayments?: DebtPayment[];
   onOpenShift: (initialBase: number, cashierName: string) => void;
+  onUpdateShift?: (updates: { cashierName: string; initialCash: number; reason?: string }) => void;
   onAddCashMovement: 
     | ((movement: Omit<CashMovement, 'id' | 'timestamp'>) => void)
     | ((type: 'inflow' | 'outflow', amount: number, category: string, reason: string) => void);
@@ -46,6 +61,7 @@ export const CashShiftModal: React.FC<CashShiftModalProps> = ({
   transactions = [],
   debtPayments = [],
   onOpenShift,
+  onUpdateShift,
   onAddCashMovement,
   onCloseShift,
   shiftHistory,
@@ -56,6 +72,13 @@ export const CashShiftModal: React.FC<CashShiftModalProps> = ({
   // Open shift state
   const [baseInput, setBaseInput] = useState<number>(100000);
   const [cashierInput, setCashierInput] = useState<string>(cashierName || 'Don Esteban');
+
+  // Edit active shift state
+  const [isEditingShift, setIsEditingShift] = useState<boolean>(false);
+  const [editCashier, setEditCashier] = useState<string>(currentShift?.cashierName || cashierName || 'Don Esteban');
+  const [editBase, setEditBase] = useState<number>(currentShift?.initialCash ?? currentShift?.initialBase ?? 150000);
+  const [editReason, setEditReason] = useState<string>('');
+  const [shiftEditSavedMessage, setShiftEditSavedMessage] = useState<string>('');
 
   // Movement input state
   const [movType, setMovType] = useState<'inflow' | 'outflow'>('outflow');
@@ -80,6 +103,14 @@ export const CashShiftModal: React.FC<CashShiftModalProps> = ({
     50: 0,
   });
 
+  // Keep edit state in sync with currentShift
+  useEffect(() => {
+    if (currentShift) {
+      setEditCashier(currentShift.cashierName || 'Don Esteban');
+      setEditBase(currentShift.initialCash ?? currentShift.initialBase ?? 150000);
+    }
+  }, [currentShift]);
+
   if (!isOpen) return null;
 
   // Calculate live numbers for the open shift
@@ -99,10 +130,10 @@ export const CashShiftModal: React.FC<CashShiftModalProps> = ({
     .filter((t) => t.paymentMethod === 'Crédito / Fiado')
     .reduce((sum, t) => sum + t.total, 0);
 
-  // Shift movements
+  // Shift movements - exclude base opening movement to avoid double counting
   const shiftMovements = cashMovements.filter((m) => new Date(m.timestamp) >= shiftStartTime);
   const totalInflows = shiftMovements
-    .filter((m) => m.type === 'inflow')
+    .filter((m) => m.type === 'inflow' && m.category !== 'Apertura de Caja' && m.id !== 'mov-init')
     .reduce((sum, m) => sum + m.amount, 0);
 
   const totalOutflows = shiftMovements
@@ -116,7 +147,7 @@ export const CashShiftModal: React.FC<CashShiftModalProps> = ({
   const totalDebtCollectedCash = shiftDebtPayments.reduce((sum, d) => sum + d.amount, 0);
 
   // Expected Physical Cash in the Register
-  const initialBase = currentShift?.initialBase || 0;
+  const initialBase = currentShift?.initialCash ?? currentShift?.initialBase ?? 0;
   const expectedCashInDrawer = initialBase + cashSalesTotal + totalInflows + totalDebtCollectedCash - totalOutflows;
 
   // Handle bill counter calculation
@@ -134,6 +165,26 @@ export const CashShiftModal: React.FC<CashShiftModalProps> = ({
     e.preventDefault();
     onOpenShift(baseInput, cashierInput);
     setActiveTab('current');
+  };
+
+  const handleSaveShiftEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const finalCashier = editCashier.trim() || currentShift?.cashierName || 'Don Esteban';
+    const finalBase = Math.max(0, Number(editBase) || 0);
+
+    if (onUpdateShift) {
+      onUpdateShift({
+        cashierName: finalCashier,
+        initialCash: finalBase,
+        reason: editReason.trim() || undefined,
+      });
+    }
+
+    setShiftEditSavedMessage(`¡Actualizado! Encargado: ${finalCashier} • Base: ${formatCOP(finalBase)}`);
+    setTimeout(() => {
+      setShiftEditSavedMessage('');
+      setIsEditingShift(false);
+    }, 1200);
   };
 
   const handleMovementSubmit = (e: React.FormEvent) => {
@@ -277,74 +328,349 @@ export const CashShiftModal: React.FC<CashShiftModalProps> = ({
                   <div>
                     <h4 className="text-base font-bold text-amber-900">La Caja se encuentra Cerrada</h4>
                     <p className="text-xs text-amber-800 mt-1 max-w-md mx-auto">
-                      Para iniciar la jornada de ventas y llevar el cuadre exacto del dinero, abre el turno especificando la base inicial en efectivo.
+                      Para iniciar la jornada de ventas y llevar el cuadre exacto del dinero, abre el turno especificando el cajero encargado y la base inicial en efectivo.
                     </p>
                   </div>
 
-                  <form onSubmit={handleOpenShiftSubmit} className="max-w-xs mx-auto space-y-3 text-left pt-2">
+                  <form onSubmit={handleOpenShiftSubmit} className="max-w-md mx-auto space-y-3 text-left pt-2 bg-white p-4 border border-amber-300">
                     <div>
-                      <label className="text-xs font-bold text-[#214C6A] block mb-1">Nombre del Cajero(a):</label>
+                      <label className="text-xs font-bold text-[#214C6A] block mb-1">
+                        Nombre del Cajero(a) Encargado(a):
+                      </label>
                       <input
                         type="text"
                         required
                         value={cashierInput}
                         onChange={(e) => setCashierInput(e.target.value)}
-                        className="w-full px-3 py-1.5 bg-white border border-[#214C6A]/30 rounded-none text-xs font-bold"
+                        className="w-full px-3 py-1.5 bg-white border border-[#214C6A]/30 rounded-none text-xs font-bold text-[#222E3A]"
                       />
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                        <span className="text-[10px] text-[#63665B] font-bold">Rápido:</span>
+                        {POPULAR_CASHIERS.map((c) => (
+                          <button
+                            key={c}
+                            type="button"
+                            onClick={() => setCashierInput(c)}
+                            className={`text-[10px] font-bold px-2 py-0.5 border cursor-pointer transition-colors ${
+                              cashierInput === c
+                                ? 'bg-[#214C6A] text-white border-[#214C6A]'
+                                : 'bg-white text-[#214C6A] border-[#214C6A]/30 hover:bg-[#F6E1C6]/60'
+                            }`}
+                          >
+                            {c}
+                          </button>
+                        ))}
+                      </div>
                     </div>
+
                     <div>
-                      <label className="text-xs font-bold text-[#214C6A] block mb-1">Base Inicial en Efectivo (COP):</label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-bold text-[#214C6A]">
+                          Base Inicial en Efectivo (COP):
+                        </label>
+                        <span className="text-xs font-black text-[#BC6343]">
+                          {formatCOP(Number(baseInput) || 0)}
+                        </span>
+                      </div>
                       <input
                         type="number"
+                        min="0"
+                        step="1000"
                         required
                         value={baseInput}
-                        onChange={(e) => setBaseInput(Number(e.target.value))}
+                        onChange={(e) => setBaseInput(Math.max(0, Number(e.target.value)))}
                         className="w-full px-3 py-1.5 bg-white border border-[#214C6A]/30 rounded-none text-base font-black text-[#214C6A]"
                       />
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                        <span className="text-[10px] text-[#63665B] font-bold">Bases:</span>
+                        {POPULAR_BASES.map((b) => (
+                          <button
+                            key={b}
+                            type="button"
+                            onClick={() => setBaseInput(b)}
+                            className={`text-[10px] font-bold px-2 py-0.5 border cursor-pointer transition-colors ${
+                              Number(baseInput) === b
+                                ? 'bg-[#BC6343] text-white border-[#BC6343]'
+                                : 'bg-white text-[#BC6343] border-[#BC6343]/30 hover:bg-[#F6E1C6]/60'
+                            }`}
+                          >
+                            {formatCOP(b)}
+                          </button>
+                        ))}
+                      </div>
                     </div>
+
                     <button
                       type="submit"
-                      className="w-full py-2.5 rounded-none bg-[#214C6A] hover:bg-[#1a3d55] text-white text-xs font-black uppercase tracking-wider shadow-xs cursor-pointer"
+                      className="w-full py-2.5 rounded-none bg-[#214C6A] hover:bg-[#1a3d55] text-white text-xs font-black uppercase tracking-wider shadow-xs cursor-pointer flex items-center justify-center gap-1.5"
                     >
-                      ✓ Abrir Turno de Caja
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      <span>Abrir Turno de Caja</span>
                     </button>
                   </form>
                 </div>
               ) : (
                 <>
-                  {/* Active Shift Overview Banner */}
-                  <div className="bg-[#214C6A] text-white p-4 rounded-none border border-[#214C6A] flex flex-wrap items-center justify-between gap-3 shadow-xs">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 bg-emerald-400 rounded-full animate-pulse" />
-                        <span className="text-xs font-extrabold uppercase tracking-wider text-emerald-300">
-                          Turno de Caja Abierto
+                  {/* Edit Shift Form (When toggled open) */}
+                  {isEditingShift ? (
+                    <form
+                      onSubmit={handleSaveShiftEdit}
+                      className="bg-white border-2 border-[#BC6343] p-4 sm:p-5 shadow-lg space-y-4 animate-fadeIn"
+                    >
+                      <div className="flex items-center justify-between border-b border-[#214C6A]/20 pb-2.5">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 bg-[#BC6343] text-white flex items-center justify-center font-bold shadow-xs">
+                            <Edit3 className="w-4 h-4 text-[#FFF9F0]" />
+                          </div>
+                          <div>
+                            <h4 className="text-sm sm:text-base font-bold text-[#214C6A]">
+                              Editar Encargado de Turno e Inicio de Caja
+                            </h4>
+                            <p className="text-[11px] text-[#63665B]">
+                              Modifica quién está a cargo de la caja y el monto de dinero base sin necesidad de cerrar el turno.
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingShift(false)}
+                          className="text-xs text-[#63665B] hover:text-[#BC6343] font-bold px-2.5 py-1 border border-gray-300 hover:border-[#BC6343] cursor-pointer"
+                        >
+                          ✕ Cancelar
+                        </button>
+                      </div>
+
+                      {shiftEditSavedMessage && (
+                        <div className="p-2.5 bg-emerald-50 border border-emerald-400 text-emerald-800 text-xs font-bold flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                          <span>{shiftEditSavedMessage}</span>
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Usuario Encargado */}
+                        <div className="space-y-2 bg-[#FFF9F0] p-3.5 border border-[#214C6A]/20">
+                          <label className="text-xs font-bold text-[#214C6A] flex items-center justify-between">
+                            <span className="flex items-center gap-1.5">
+                              <User className="w-4 h-4 text-[#BC6343]" />
+                              Usuario Encargado del Turno:
+                            </span>
+                            <span className="text-[10px] text-[#63665B]">Actual: {currentShift.cashierName}</span>
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={editCashier}
+                            onChange={(e) => setEditCashier(e.target.value)}
+                            className="w-full px-3 py-2 bg-white border-2 border-[#214C6A]/40 focus:border-[#214C6A] rounded-none text-sm font-bold text-[#222E3A] outline-none"
+                            placeholder="Nombre del cajero(a)..."
+                          />
+                          <div>
+                            <span className="text-[10px] uppercase font-bold text-[#63665B] block mb-1">
+                              Cajeros Frecuentes:
+                            </span>
+                            <div className="flex flex-wrap gap-1.5">
+                              {POPULAR_CASHIERS.map((name) => (
+                                <button
+                                  key={name}
+                                  type="button"
+                                  onClick={() => setEditCashier(name)}
+                                  className={`text-xs px-2.5 py-1 font-bold border transition-colors cursor-pointer ${
+                                    editCashier.toLowerCase() === name.toLowerCase()
+                                      ? 'bg-[#214C6A] text-white border-[#214C6A]'
+                                      : 'bg-white text-[#214C6A] border-[#214C6A]/30 hover:bg-[#F6E1C6]/60'
+                                  }`}
+                                >
+                                  {name}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Inicio de Caja / Base Inicial */}
+                        <div className="space-y-2 bg-[#FFF9F0] p-3.5 border border-[#214C6A]/20">
+                          <label className="text-xs font-bold text-[#214C6A] flex items-center justify-between">
+                            <span className="flex items-center gap-1.5">
+                              <Vault className="w-4 h-4 text-[#BC6343]" />
+                              Inicio de Caja / Base Inicial (COP):
+                            </span>
+                            <span className="text-xs font-black text-[#BC6343]">
+                              {formatCOP(Number(editBase) || 0)}
+                            </span>
+                          </label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-gray-500 text-sm">$</span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="1000"
+                              required
+                              value={editBase}
+                              onChange={(e) => setEditBase(Math.max(0, Number(e.target.value)))}
+                              className="w-full pl-7 pr-3 py-2 bg-white border-2 border-[#214C6A]/40 focus:border-[#214C6A] rounded-none text-lg font-black text-[#214C6A] outline-none"
+                            />
+                          </div>
+                          <div>
+                            <span className="text-[10px] uppercase font-bold text-[#63665B] block mb-1">
+                              Bases Rápidas Sugeridas:
+                            </span>
+                            <div className="flex flex-wrap gap-1.5">
+                              {POPULAR_BASES.map((b) => (
+                                <button
+                                  key={b}
+                                  type="button"
+                                  onClick={() => setEditBase(b)}
+                                  className={`text-[11px] px-2 py-0.5 font-bold border transition-colors cursor-pointer ${
+                                    Number(editBase) === b
+                                      ? 'bg-[#BC6343] text-white border-[#BC6343]'
+                                      : 'bg-white text-[#BC6343] border-[#BC6343]/30 hover:bg-[#F6E1C6]/60'
+                                  }`}
+                                >
+                                  {formatCOP(b)}
+                                </button>
+                              ))}
+                              <button
+                                type="button"
+                                onClick={() => setEditBase((prev) => (Number(prev) || 0) + 10000)}
+                                className="text-[11px] px-2 py-0.5 font-bold border bg-white text-[#214C6A] border-[#214C6A]/30 hover:bg-[#F6E1C6]/60 cursor-pointer"
+                              >
+                                +$10.000
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setEditBase((prev) => (Number(prev) || 0) + 50000)}
+                                className="text-[11px] px-2 py-0.5 font-bold border bg-white text-[#214C6A] border-[#214C6A]/30 hover:bg-[#F6E1C6]/60 cursor-pointer"
+                              >
+                                +$50.000
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Motivo o Justificación */}
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-[#214C6A] block">
+                          Motivo o Justificación del Cambio (Opcional para auditoría de caja):
+                        </label>
+                        <input
+                          type="text"
+                          value={editReason}
+                          onChange={(e) => setEditReason(e.target.value)}
+                          placeholder="Ej. Relevo de turno por la tarde, corrección de vueltas en billetes..."
+                          className="w-full px-3 py-1.5 bg-white border border-[#214C6A]/30 rounded-none text-xs text-[#222E3A]"
+                        />
+                        <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                          <span className="text-[10px] text-[#63665B] font-bold">Sugerencias:</span>
+                          {POPULAR_REASONS.map((r) => (
+                            <button
+                              key={r}
+                              type="button"
+                              onClick={() => setEditReason(r)}
+                              className="text-[10px] px-2 py-0.5 bg-[#F6E1C6]/50 hover:bg-[#F6E1C6] text-[#214C6A] border border-[#214C6A]/20 cursor-pointer"
+                            >
+                              {r}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Botones de acción del editor */}
+                      <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#214C6A]/20">
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingShift(false)}
+                          className="px-4 py-2 border border-gray-400 hover:bg-gray-100 text-xs font-bold text-gray-700 cursor-pointer"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="submit"
+                          className="px-5 py-2 bg-[#214C6A] hover:bg-[#1a3d55] text-white text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm cursor-pointer"
+                        >
+                          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                          <span>Guardar Cambios de Turno</span>
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    /* Active Shift Overview Banner */
+                    <div className="bg-[#214C6A] text-white p-4 rounded-none border border-[#214C6A] flex flex-wrap items-center justify-between gap-3 shadow-xs">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 bg-emerald-400 rounded-full animate-pulse" />
+                          <span className="text-xs font-extrabold uppercase tracking-wider text-emerald-300">
+                            Turno de Caja Abierto
+                          </span>
+                        </div>
+                        <h4 className="text-base sm:text-lg font-bold font-title mt-0.5">
+                          Cajero(a) Encargado(a): <strong className="text-[#EB9D52] font-secondary">{currentShift.cashierName}</strong>
+                        </h4>
+                        <div className="flex flex-wrap items-center gap-2 mt-1 text-[11px] text-[#F6E1C6]/80">
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3.5 h-3.5" />
+                            Apertura: {new Date(currentShift.openedAt).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                          </span>
+                          <span className="text-white/30">•</span>
+                          <span>Base inicial: <strong className="text-white">{formatCOP(initialBase)}</strong></span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditCashier(currentShift.cashierName);
+                            setEditBase(currentShift.initialCash ?? currentShift.initialBase ?? 150000);
+                            setEditReason('');
+                            setIsEditingShift(true);
+                          }}
+                          className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-none bg-[#EB9D52] hover:bg-[#F6E1C6] text-[#222E3A] transition-all cursor-pointer shadow-xs"
+                          title="Editar usuario encargado de turno y su base inicial"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                          <span>Editar Encargado e Inicio de Caja</span>
+                        </button>
+                      </div>
+
+                      <div className="text-right">
+                        <span className="text-[10px] uppercase font-bold text-[#F6E1C6]/80 block">
+                          Efectivo Teórico en Gaveta
+                        </span>
+                        <span className="text-2xl sm:text-3xl font-black text-[#EB9D52] font-secondary">
+                          {formatCOP(expectedCashInDrawer)}
+                        </span>
+                        <span className="text-[10px] text-[#F6E1C6]/70 block mt-0.5">
+                          Base {formatCOP(initialBase)} + Entradas - Salidas
                         </span>
                       </div>
-                      <h4 className="text-base font-bold font-title mt-0.5">
-                        Cajero: <strong className="text-[#EB9D52] font-secondary">{currentShift.cashierName}</strong>
-                      </h4>
-                      <p className="text-[11px] text-[#F6E1C6]/80 flex items-center gap-1.5 mt-0.5">
-                        <Clock className="w-3.5 h-3.5" />
-                        Apertura: {new Date(currentShift.openedAt).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true })}
-                      </p>
                     </div>
-
-                    <div className="text-right">
-                      <span className="text-[10px] uppercase font-bold text-[#F6E1C6]/80 block">
-                        Efectivo Teórico en Gaveta
-                      </span>
-                      <span className="text-2xl sm:text-3xl font-black text-[#EB9D52] font-secondary">
-                        {formatCOP(expectedCashInDrawer)}
-                      </span>
-                    </div>
-                  </div>
+                  )}
 
                   {/* Cash Flow Balance Breakdown Grid */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
-                    <div className="bg-[#FFF9F0] p-2.5 border border-[#214C6A]/20">
-                      <span className="text-[10px] font-bold text-[#63665B] block">1. Base Inicial</span>
-                      <span className="text-base font-black text-[#214C6A]">{formatCOP(initialBase)}</span>
+                    <div className="bg-[#FFF9F0] p-2.5 border border-[#214C6A]/20 flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-bold text-[#63665B] block">1. Base Inicial</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditCashier(currentShift.cashierName);
+                              setEditBase(currentShift.initialCash ?? currentShift.initialBase ?? 150000);
+                              setEditReason('');
+                              setIsEditingShift(true);
+                            }}
+                            className="text-[10px] font-bold text-[#BC6343] hover:text-[#56291D] underline flex items-center gap-0.5 cursor-pointer"
+                            title="Editar base de caja"
+                          >
+                            <Edit3 className="w-3 h-3" />
+                            <span>Editar</span>
+                          </button>
+                        </div>
+                        <span className="text-base font-black text-[#214C6A]">{formatCOP(initialBase)}</span>
+                      </div>
+                      <span className="text-[10px] text-[#63665B] mt-1 truncate">
+                        Por: {currentShift.cashierName}
+                      </span>
                     </div>
 
                     <div className="bg-[#FFF9F0] p-2.5 border border-emerald-300 bg-emerald-50/50">

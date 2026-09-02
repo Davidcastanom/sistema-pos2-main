@@ -23,6 +23,22 @@ export interface CategoryInfo {
   borderPastel: string;
 }
 
+export interface ProductSupplierQuote {
+  id: string;
+  productId: string | number;
+  supplierId: string;
+  supplierName: string;
+  costPrice: number; // Precio al que deja el producto este proveedor (en COP)
+  supplierProductCode?: string; // Código / SKU interno del proveedor
+  minOrderQuantity?: number; // Cantidad mínima de compra por pedido
+  packagePresentation?: string; // Presentación (e.g. "Bulto x 24 un", "Paca x 12", "Caja")
+  leadTimeDays?: number; // Días que tarda en entregar (e.g. 1 día, 2 días)
+  isPreferred?: boolean; // Si es el proveedor seleccionado actualmente
+  inStock?: boolean; // Si el proveedor tiene disponibilidad inmediata o desabastecimiento
+  lastQuotedDate?: Date | string;
+  notes?: string;
+}
+
 export interface ProductItem {
   id: string | number;
   barcode: string;
@@ -39,6 +55,9 @@ export interface ProductItem {
   featured?: boolean;
   ivaRate?: number; // VAT percentage: 0, 5, 19
   discount?: number; // Product discount percentage: 0 to 100
+  primarySupplierId?: string;
+  primarySupplierName?: string;
+  supplierQuotes?: ProductSupplierQuote[];
 }
 
 export interface CartItem {
@@ -167,5 +186,53 @@ export interface BreakEvenAnalysis {
   motivationalMessage: string;
   isBreakEvenReached: boolean;
   estimatedUnitsNeeded?: number;
+}
+
+export interface Supplier {
+  id: string;
+  name: string;
+  nit?: string;
+  contactPerson?: string;
+  phone: string; // WhatsApp / Celular
+  email?: string;
+  address?: string;
+  visitDays?: string[]; // e.g. ['Lunes', 'Jueves']
+  deliveryDays?: number; // Lead time in days
+  paymentTerms?: string; // 'Contado / Efectivo', 'Crédito 8 días', 'Crédito 15 días', 'Crédito 30 días'
+  minOrderAmount?: number; // Pedido mínimo en COP
+  rating?: number; // 1 to 5
+  notes?: string;
+  categoriesSupplied?: string[];
+  createdAt?: Date | string;
+}
+
+export interface SupplierOrderItem {
+  productId: string | number;
+  productTitle: string;
+  unit: string;
+  currentStock: number;
+  minStock: number;
+  suggestedQuantity: number;
+  orderQuantity: number;
+  unitCost: number;
+  totalCost: number;
+  supplierProductCode?: string;
+}
+
+export interface SupplierOrder {
+  id: string;
+  supplierId: string;
+  supplierName: string;
+  supplierPhone?: string;
+  supplierNit?: string;
+  createdAt: Date | string;
+  status: 'Borrador' | 'Solicitado' | 'Recibido' | 'Cancelado';
+  items: SupplierOrderItem[];
+  totalEstimatedCost: number;
+  notes?: string;
+  sentVia?: 'WhatsApp' | 'PDF / Imprimir' | 'Manual';
+  receivedAt?: Date | string;
+  receivedBy?: string;
+  paidWithCashMovement?: boolean;
 }
 

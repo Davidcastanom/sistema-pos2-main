@@ -12,7 +12,8 @@ import {
   Minus, 
   Star,
   Edit3,
-  Percent
+  Percent,
+  X
 } from 'lucide-react';
 
 interface ProductGridProps {
@@ -77,19 +78,21 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
     <div className="space-y-3">
       {/* Grid Meta Header & View Mode Switcher */}
       <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs font-semibold text-[#214C6A] bg-white/50 backdrop-blur-md px-2.5 py-1 border border-white/60 shadow-2xs">
-            Catálogo: <strong className="text-[#214C6A] font-bold">{products.length}</strong> productos
+        <div className="flex items-center gap-2 flex-wrap text-xs text-[#214C6A]">
+          <span className="font-semibold">
+            Catálogo: <strong className="font-bold">{products.length}</strong> productos
           </span>
           {selectedCategory !== 'Todos' && (
-            <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#214C6A] bg-white/50 backdrop-blur-md px-2.5 py-1 rounded-none border border-white/60 shadow-2xs">
-              <Filter className="w-3.5 h-3.5 text-[#BC6343]" />
-              {selectedCategory}
+            <span className="inline-flex items-center gap-1 font-semibold text-[#BC6343]">
+              <span className="text-[#214C6A]/40">•</span>
+              <Filter className="w-3 h-3" />
+              <span>{selectedCategory}</span>
             </span>
           )}
           {searchQuery && (
-            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#214C6A] bg-white/60 backdrop-blur-md px-2.5 py-1 rounded-none border border-white/70 shadow-2xs">
-              Filtro: &ldquo;{searchQuery}&rdquo;
+            <span className="inline-flex items-center gap-1 font-semibold text-[#214C6A]">
+              <span className="text-[#214C6A]/40">•</span>
+              <span>Filtro: &ldquo;{searchQuery}&rdquo;</span>
             </span>
           )}
         </div>

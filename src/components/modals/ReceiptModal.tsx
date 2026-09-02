@@ -73,7 +73,15 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
             className="print-only-receipt w-full max-w-[340px] bg-white p-4 shadow-md rounded-none border border-[#214C6A]/20 font-mono text-[11px] text-slate-800 space-y-3 print:shadow-none print:border-none print:m-0 print:p-2"
           >
             {/* Header */}
-            <div className="text-center space-y-0.5 border-b border-dashed border-slate-300 pb-3">
+            <div className="text-center space-y-1 border-b border-dashed border-slate-300 pb-3">
+              <div className="flex justify-center mb-1">
+                <img
+                  src="https://res.cloudinary.com/unhl90nr/image/upload/v1788376390/logo_sl8qs4.png"
+                  alt="Logo Tienda Mixta La Esquinita"
+                  className="w-14 h-14 rounded-full object-contain mx-auto"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
               <div className="font-bold text-sm text-slate-900 tracking-wider">
                 TIENDA MIXTA
               </div>

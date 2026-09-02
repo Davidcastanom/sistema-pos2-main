@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { CategoryInfo, CategoryName, ProductItem } from '@/types';
+import { CategoryInfo, CategoryName, ProductItem, Supplier } from '@/types';
 import { CATEGORIES } from '@/data/initialData';
 import {
   PlusCircle,
@@ -16,6 +16,8 @@ import {
   Trash2,
   Settings,
   AlertTriangle,
+  Truck,
+  Info,
 } from 'lucide-react';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { playBeep, formatCOP, normalizeImageUrl } from '@/lib/utils';
@@ -28,6 +30,7 @@ interface AddProductModalProps {
   onDeleteProduct?: (productId: string | number) => void;
   editingProduct?: ProductItem | null;
   categories?: CategoryInfo[];
+  suppliers?: Supplier[];
   initialBarcode?: string;
   onOpenScanner?: () => void;
   onOpenManageCategories?: () => void;
@@ -56,6 +59,7 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
   onDeleteProduct,
   editingProduct = null,
   categories = CATEGORIES,
+  suppliers = [],
   initialBarcode = '',
   onOpenScanner,
   onOpenManageCategories,
@@ -74,6 +78,7 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
   const [imageUrl, setImageUrl] = useState('');
   const [ivaRate, setIvaRate] = useState<number>(0);
   const [discount, setDiscount] = useState<number>(0);
+  const [primarySupplierId, setPrimarySupplierId] = useState<string>('');
   const [isReadingPhoto, setIsReadingPhoto] = useState(false);
   const [scanFeedback, setScanFeedback] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -94,6 +99,7 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
       setImageUrl(editingProduct.imageUrl || '');
       setIvaRate(editingProduct.ivaRate !== undefined ? editingProduct.ivaRate : 0);
       setDiscount(editingProduct.discount !== undefined ? editingProduct.discount : 0);
+      setPrimarySupplierId(editingProduct.primarySupplierId || '');
       setScanFeedback(null);
       setShowDeleteConfirm(false);
     } else {
@@ -109,6 +115,7 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
       setImageUrl('');
       setIvaRate(0);
       setDiscount(0);
+      setPrimarySupplierId(suppliers[0]?.id || '');
       setShowDeleteConfirm(false);
       if (initialBarcode) {
         setScanFeedback({ message: `¡Código ${initialBarcode} cargado con éxito!`, type: 'success' });
@@ -116,7 +123,7 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
         setScanFeedback(null);
       }
     }
-  }, [editingProduct, initialBarcode, isOpen, categories]);
+  }, [editingProduct, initialBarcode, isOpen, categories, suppliers]);
 
   if (!isOpen) return null;
 
@@ -179,7 +186,9 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
       normalizeImageUrl(imageUrl.trim()) ||
       (editingProduct?.imageUrl ? normalizeImageUrl(editingProduct.imageUrl) : undefined) ||
       categories.find((c) => c.name === category)?.imageUrl ||
-      'https://images.unsplash.com/photo-1588964895597-cfccd6e2dbf9?w=700&auto=format&fit=crop&q=80';
+      'https://res.cloudinary.com/unhl90nr/image/upload/v1788303386/Belleza_Carmes%C3%AD_iclhmj.webp';
+
+    const supplierObj = suppliers.find((s) => s.id === primarySupplierId);
 
     const productPayload: ProductItem = {
       id: editingProduct ? editingProduct.id : `custom-${Date.now()}`,
@@ -196,6 +205,22 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
       ivaRate: Math.max(0, Number(ivaRate) || 0),
       discount: Math.max(0, Math.min(100, Number(discount) || 0)),
       featured: editingProduct ? editingProduct.featured : false,
+      primarySupplierId: primarySupplierId || editingProduct?.primarySupplierId,
+      primarySupplierName: supplierObj?.name || editingProduct?.primarySupplierName,
+      supplierQuotes: editingProduct?.supplierQuotes || (primarySupplierId && supplierObj ? [
+        {
+          id: `q-${Date.now()}`,
+          productId: editingProduct ? editingProduct.id : `custom-${Date.now()}`,
+          supplierId: supplierObj.id,
+          supplierName: supplierObj.name,
+          costPrice: Math.max(0, Number(costPrice) || Math.round(Number(price) * 0.75)),
+          packagePresentation: unit.trim() || 'unidades',
+          leadTimeDays: supplierObj.deliveryDays || 1,
+          isPreferred: true,
+          inStock: true,
+          lastQuotedDate: new Date().toISOString().split('T')[0],
+        }
+      ] : undefined),
     };
 
     if (isEditing && onUpdateProduct) {
@@ -331,6 +356,28 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
               />
             </div>
           </div>
+
+          {/* Supplier Selection for Traceability */}
+          {suppliers.length > 0 && (
+            <div>
+              <label className="block font-bold text-[#214C6A] mb-1 flex items-center gap-1.5 text-xs">
+                <Truck className="w-3.5 h-3.5 text-[#BC6343]" />
+                <span>Proveedor Principal Asignado</span>
+              </label>
+              <select
+                value={primarySupplierId}
+                onChange={(e) => setPrimarySupplierId(e.target.value)}
+                className="w-full px-3 py-2 bg-[#FFF9F0] border border-[#214C6A]/20 rounded-none text-xs font-semibold focus:ring-1 focus:ring-[#BC6343] focus:outline-none"
+              >
+                <option value="">-- Sin proveedor asignado --</option>
+                {suppliers.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} ({s.paymentTerms})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Prices: Sale Price & Cost Price */}
           <div className="grid grid-cols-2 gap-3">
@@ -567,8 +614,9 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
                 placeholder="https://drive.google.com/file/d/... o https://images.unsplash.com/..."
                 className="w-full px-3 py-2 bg-[#FFF9F0] border border-[#214C6A]/20 rounded-none text-[#222E3A] placeholder-[#63665B]/50 focus:ring-1 focus:ring-[#BC6343] focus:outline-none"
               />
-              <p className="text-[10px] text-[#63665B] mt-1">
-                💡 Puedes pegar el enlace de compartir de Google Drive (asegúrate de que el acceso esté en <em>"Cualquier persona con el enlace"</em>).
+              <p className="text-[10px] text-[#63665B] mt-1 flex items-center gap-1">
+                <Info className="w-3 h-3 text-[#BC6343] shrink-0 inline" />
+                <span>Puedes pegar el enlace de compartir de Google Drive (asegúrate de que el acceso esté en <em>"Cualquier persona con el enlace"</em>).</span>
               </p>
             </div>
           </div>

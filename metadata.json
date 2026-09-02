@@ -1,6 +1,6 @@
 {
   "name": "Tienda Mixta La Esquinita - Sistema POS",
-  "description": "Sistema de Punto de Venta (POS) para Tienda Mixta La Esquinita con catálogo por categorías, Dashboard Gerencial Simplificado (Semáforo y Bolsillo), Módulo de Ingreso de Costos Fijos y Punto de Equilibrio, control de caja y facturación.",
+  "description": "Sistema de Punto de Venta (POS) para Tienda Mixta La Esquinita con trazabilidad y comparación de proveedores, pedidos de desabastecimiento, catálogo, Dashboard Gerencial (Semáforo y Bolsillo), costos fijos, control de caja y facturación.",
   "requestFramePermissions": ["camera"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -29,6 +29,7 @@ import {
   Flame,
   ShoppingBag,
   Zap,
+  Info,
 } from 'lucide-react';
 
 interface ManageCategoriesModalProps {
@@ -533,8 +534,9 @@ export const ManageCategoriesModal: React.FC<ManageCategoriesModalProps> = ({
 
         {/* Footer */}
         <div className="p-3.5 bg-[#F6E1C6]/60 border-t-2 border-[#214C6A] flex items-center justify-between">
-          <span className="text-xs text-[#56291D]">
-            💡 Al modificar el nombre de una categoría, todos los productos existentes se actualizan automáticamente.
+          <span className="text-xs text-[#56291D] flex items-center gap-1.5">
+            <Info className="w-3.5 h-3.5 text-[#BC6343] shrink-0" />
+            <span>Al modificar el nombre de una categoría, todos los productos existentes se actualizan automáticamente.</span>
           </span>
           <button
             onClick={onClose}

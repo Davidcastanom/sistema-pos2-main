@@ -18,7 +18,8 @@ import {
   PlusCircle,
   RefreshCw,
   Trash2,
-  Settings
+  Settings,
+  Truck
 } from 'lucide-react';
 
 interface InventoryManagerModalProps {
@@ -34,6 +35,7 @@ interface InventoryManagerModalProps {
   onOpenAddProduct?: () => void;
   onAddNewProduct?: () => void;
   onOpenManageCategories?: () => void;
+  onOpenSuppliersModal?: (productId?: string | number, tab?: 'directory' | 'compare' | 'reorder' | 'orders') => void;
 }
 
 export const InventoryManagerModal: React.FC<InventoryManagerModalProps> = ({
@@ -49,6 +51,7 @@ export const InventoryManagerModal: React.FC<InventoryManagerModalProps> = ({
   onOpenAddProduct,
   onAddNewProduct,
   onOpenManageCategories,
+  onOpenSuppliersModal,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -329,9 +332,26 @@ export const InventoryManagerModal: React.FC<InventoryManagerModalProps> = ({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape' && searchQuery) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setSearchQuery('');
+                }
+              }}
               placeholder="Buscar por nombre, código de barras o categoría..."
-              className="w-full pl-9 pr-3 py-1.5 bg-white border border-[#214C6A]/30 rounded-none text-xs focus:ring-1 focus:ring-[#214C6A] focus:outline-none"
+              className={`w-full pl-9 ${searchQuery ? 'pr-8' : 'pr-3'} py-1.5 bg-white border border-[#214C6A]/30 rounded-none text-xs focus:ring-1 focus:ring-[#214C6A] focus:outline-none`}
             />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-rose-600 p-0.5 rounded cursor-pointer transition-colors"
+                title="Borrar búsqueda"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
 
           {/* Category Filter */}
@@ -357,11 +377,22 @@ export const InventoryManagerModal: React.FC<InventoryManagerModalProps> = ({
                 : 'bg-white text-rose-800 border-rose-300 hover:bg-rose-50'
             }`}
           >
-            {filterLowStockOnly ? '✓ Solo Stock Bajo' : '⚠️ Ver Stock Bajo'}
+            {filterLowStockOnly ? 'Solo Stock Bajo' : 'Ver Stock Bajo'}
           </button>
 
           {/* Management Buttons */}
           <div className="flex items-center gap-1.5 flex-wrap">
+            {onOpenSuppliersModal && (
+              <button
+                onClick={() => onOpenSuppliersModal(undefined, 'reorder')}
+                className="px-3 py-1.5 bg-[#EB9D52] hover:bg-[#d8893d] text-[#1b2631] text-xs font-black rounded-none flex items-center gap-1 cursor-pointer shadow-xs"
+                title="Trazabilidad de Proveedores, cotizaciones y pedidos de abastecimiento"
+              >
+                <Truck className="w-3.5 h-3.5 text-[#1b2631]" />
+                <span>Proveedores & Compras</span>
+              </button>
+            )}
+
             {onOpenManageCategories && (
               <button
                 onClick={onOpenManageCategories}
@@ -624,7 +655,7 @@ export const InventoryManagerModal: React.FC<InventoryManagerModalProps> = ({
                           }`}>
                             {p.stock} {p.unit || 'uds'}
                           </span>
-                          {isLow && <span className="block text-[9px] text-rose-700 font-bold mt-0.5">⚠️ Reordenar</span>}
+                          {isLow && <span className="block text-[9px] text-rose-700 font-bold mt-0.5">Reordenar</span>}
                         </td>
                         <td className="p-2 text-[11px]">
                           <div>IVA: <strong>{p.ivaRate || 0}%</strong></div>
@@ -632,6 +663,17 @@ export const InventoryManagerModal: React.FC<InventoryManagerModalProps> = ({
                         </td>
                         <td className="p-2 text-right">
                           <div className="flex items-center justify-end gap-1">
+                            {onOpenSuppliersModal && (
+                              <button
+                                onClick={() => onOpenSuppliersModal(p.id, 'compare')}
+                                className="px-2 py-1 bg-[#FFF9F0] hover:bg-[#F6E1C6] text-[#214C6A] border border-[#214C6A]/30 text-[10px] font-bold rounded-none cursor-pointer flex items-center gap-1"
+                                title="Ver cotizaciones y comparar proveedores para este producto"
+                              >
+                                <Truck className="w-3 h-3 text-[#BC6343]" />
+                                <span className="hidden sm:inline">Prov.</span>
+                              </button>
+                            )}
+
                             <button
                               onClick={() => {
                                 if (onEditProduct) {

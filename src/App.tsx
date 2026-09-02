@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   CategoryName, 
   CategoryInfo,
@@ -10,9 +10,12 @@ import {
   CashShift,
   CashMovement,
   DebtPayment,
-  FixedMonthlyCosts
+  FixedMonthlyCosts,
+  Supplier,
+  ProductSupplierQuote,
+  SupplierOrder
 } from './types';
-import { INITIAL_PRODUCTS, INITIAL_CUSTOMERS, CATEGORIES } from './data/initialData';
+import { INITIAL_PRODUCTS, INITIAL_CUSTOMERS, CATEGORIES, INITIAL_SUPPLIERS } from './data/initialData';
 import { DEFAULT_FIXED_COSTS } from './lib/businessLogic';
 import { 
   POSHeader, 
@@ -34,7 +37,8 @@ import {
   InventoryManagerModal, 
   ReportsModal,
   ManagerDashboardModal,
-  LiquidGlassGuideModal 
+  LiquidGlassGuideModal,
+  SuppliersModal
 } from './components';
 import { formatCOP } from './lib/utils';
 import { 
@@ -114,7 +118,22 @@ export default function App() {
     const saved = localStorage.getItem('pos_products_v2');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed: ProductItem[] = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Merge with INITIAL_PRODUCTS if parsed products lack supplier quotes or primary supplier info
+          return parsed.map((p) => {
+            const initMatch = INITIAL_PRODUCTS.find((ip) => String(ip.id) === String(p.id) || ip.barcode === p.barcode);
+            return {
+              ...p,
+              primarySupplierId: p.primarySupplierId || initMatch?.primarySupplierId,
+              primarySupplierName: p.primarySupplierName || initMatch?.primarySupplierName,
+              supplierQuotes: (p.supplierQuotes && p.supplierQuotes.length > 0)
+                ? p.supplierQuotes
+                : (initMatch?.supplierQuotes || []),
+            };
+          });
+        }
+        return INITIAL_PRODUCTS;
       } catch {
         return INITIAL_PRODUCTS;
       }
@@ -268,6 +287,38 @@ export default function App() {
   const [isReportsModalOpen, setIsReportsModalOpen] = useState<boolean>(false);
   const [isManagerDashboardOpen, setIsManagerDashboardOpen] = useState<boolean>(false);
   const [isLiquidGlassGuideOpen, setIsLiquidGlassGuideOpen] = useState<boolean>(false);
+  const [isSuppliersModalOpen, setIsSuppliersModalOpen] = useState<boolean>(false);
+  const [supplierModalInitialTab, setSupplierModalInitialTab] = useState<'directory' | 'compare' | 'reorder' | 'orders'>('directory');
+  const [supplierModalInitialProductId, setSupplierModalInitialProductId] = useState<string | number | undefined>(undefined);
+
+  // Suppliers state with persistence
+  const [suppliers, setSuppliers] = useState<Supplier[]>(() => {
+    const saved = localStorage.getItem('pos_suppliers_v1');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      } catch {
+        return INITIAL_SUPPLIERS;
+      }
+    }
+    return INITIAL_SUPPLIERS;
+  });
+
+  // Supplier Purchase Orders state with persistence
+  const [supplierOrders, setSupplierOrders] = useState<SupplierOrder[]>(() => {
+    const saved = localStorage.getItem('pos_supplier_orders_v1');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  });
 
   // Fixed Monthly Costs state with persistence
   const [fixedCosts, setFixedCosts] = useState<FixedMonthlyCosts>(() => {
@@ -286,6 +337,14 @@ export default function App() {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'warning' } | null>(null);
 
   // Save changes to localStorage
+  useEffect(() => {
+    localStorage.setItem('pos_suppliers_v1', JSON.stringify(suppliers));
+  }, [suppliers]);
+
+  useEffect(() => {
+    localStorage.setItem('pos_supplier_orders_v1', JSON.stringify(supplierOrders));
+  }, [supplierOrders]);
+
   useEffect(() => {
     localStorage.setItem('pos_fixed_costs_v1', JSON.stringify(fixedCosts));
   }, [fixedCosts]);
@@ -336,7 +395,7 @@ export default function App() {
         showToast(prod ? `"${prod.title}" quitado de botones rápidos` : 'Botón rápido eliminado', 'info');
         return prev.filter((id) => id !== productId);
       } else {
-        showToast(prod ? `⭐ "${prod.title}" agregado a botones rápidos` : '⭐ Botón rápido agregado', 'success');
+        showToast(prod ? `"${prod.title}" agregado a botones rápidos` : 'Botón rápido agregado', 'success');
         return [...prev, productId];
       }
     });
@@ -368,7 +427,7 @@ export default function App() {
       return;
     }
     setQuickSearchChips((prev) => [...prev, trimmed]);
-    showToast(`🔍 "${trimmed}" agregado a la búsqueda rápida`, 'success');
+    showToast(`"${trimmed}" agregado a la búsqueda rápida`, 'success');
   };
 
   const handleRemoveSearchChip = (chipText: string) => {
@@ -381,12 +440,38 @@ export default function App() {
     showToast('Búsqueda rápida restablecida por defecto', 'success');
   };
 
+  // Mutable refs for active search and open modals to avoid stale keyboard event closures
+  const searchQueryRef = useRef(searchQuery);
+  searchQueryRef.current = searchQuery;
+
+  const modalsOpenRef = useRef(false);
+  modalsOpenRef.current = Boolean(
+    isPaymentModalOpen || isReceiptModalOpen || isHistoryModalOpen ||
+    isAddProductModalOpen || isManageCategoriesOpen || isQuickAmountModalOpen ||
+    isManageFavoritesOpen || isManageQuickSearchOpen || isScannerModalOpen ||
+    isCustomerModalOpen || isCashShiftModalOpen || isInventoryModalOpen || isReportsModalOpen ||
+    isManagerDashboardOpen || isLiquidGlassGuideOpen || isSuppliersModalOpen
+  );
+
   // Keyboard shortcuts for high-speed POS operation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // F2: Enfocar buscador y seleccionar todo el texto para búsqueda o reemplazo instantáneo
       if (e.key === 'F2') {
         e.preventDefault();
-        const searchEl = document.getElementById('pos-search-input');
+        const searchEl = document.getElementById('pos-search-input') as HTMLInputElement | null;
+        if (searchEl) {
+          searchEl.focus();
+          searchEl.select();
+        }
+        return;
+      }
+
+      // Acceso rápido global para limpiar motor de búsqueda: Alt + B o Alt + C
+      if (e.altKey && (e.key === 'b' || e.key === 'B' || e.key === 'c' || e.key === 'C')) {
+        e.preventDefault();
+        setSearchQuery('');
+        const searchEl = document.getElementById('pos-search-input') as HTMLInputElement | null;
         searchEl?.focus();
         return;
       }
@@ -428,6 +513,15 @@ export default function App() {
       }
 
       if (e.key === 'Escape') {
+        // Si no hay modales abiertos y hay texto en la búsqueda, Esc borra la búsqueda rápidamente
+        if (!modalsOpenRef.current && searchQueryRef.current) {
+          e.preventDefault();
+          setSearchQuery('');
+          const searchEl = document.getElementById('pos-search-input') as HTMLInputElement | null;
+          searchEl?.focus();
+          return;
+        }
+
         setIsPaymentModalOpen(false);
         setIsReceiptModalOpen(false);
         setIsHistoryModalOpen(false);
@@ -441,6 +535,9 @@ export default function App() {
         setIsCashShiftModalOpen(false);
         setIsInventoryModalOpen(false);
         setIsReportsModalOpen(false);
+        setIsManagerDashboardOpen(false);
+        setIsLiquidGlassGuideOpen(false);
+        setIsSuppliersModalOpen(false);
       }
     };
 
@@ -571,9 +668,9 @@ export default function App() {
     if (found) {
       handleAddToCart(found);
       playBeep();
-      showToast(`✅ Código ${cleanCode}: "${found.title}" agregado a la cuenta`, 'success');
+      showToast(`Código ${cleanCode}: "${found.title}" agregado a la cuenta`, 'success');
     } else {
-      showToast(`⚠️ Código "${cleanCode}" no encontrado. Puedes registrarlo como nuevo producto.`, 'warning');
+      showToast(`Código "${cleanCode}" no encontrado. Puedes registrarlo como nuevo producto.`, 'warning');
     }
   };
 
@@ -873,6 +970,7 @@ export default function App() {
       openedAt: new Date(),
       cashierName,
       initialCash,
+      initialBase: initialCash,
       cashSales: 0,
       electronicSales: 0,
       creditSales: 0,
@@ -894,6 +992,55 @@ export default function App() {
 
     setCurrentShift(newShift);
     showToast(`Turno de caja abierto por ${cashierName} con base de ${formatCOP(initialCash)}`, 'success');
+  };
+
+  const handleUpdateCurrentShift = (updates: { cashierName: string; initialCash: number; reason?: string }) => {
+    if (!currentShift) return;
+
+    setCurrentShift((prev) => {
+      if (!prev) return prev;
+      const oldCashier = prev.cashierName;
+      const oldBase = prev.initialCash ?? prev.initialBase ?? 0;
+      const newCashier = updates.cashierName.trim() || oldCashier;
+      const newBase = updates.initialCash;
+
+      // Update initial opening movement if present
+      const updatedMovements = prev.movements.map((m) => {
+        if (m.category === 'Apertura de Caja' || m.id === 'mov-init') {
+          return {
+            ...m,
+            amount: newBase,
+            cashierName: newCashier,
+            reason: updates.reason ? `Base inicial ajustada: ${updates.reason}` : m.reason,
+          };
+        }
+        return m;
+      });
+
+      // Audit movement for tracking shift cashier change or base alteration
+      const auditMovement: CashMovement = {
+        id: `mov-audit-${Date.now()}`,
+        timestamp: new Date(),
+        type: 'inflow',
+        category: 'Apertura de Caja',
+        amount: 0,
+        reason: `Ajuste de turno: Encargado (${oldCashier} ➔ ${newCashier}), Base (${formatCOP(oldBase)} ➔ ${formatCOP(newBase)})${updates.reason ? ` - Motivo: ${updates.reason}` : ''}`,
+        cashierName: newCashier,
+      };
+
+      return {
+        ...prev,
+        cashierName: newCashier,
+        initialCash: newBase,
+        initialBase: newBase,
+        movements: [auditMovement, ...updatedMovements]
+      };
+    });
+
+    showToast(
+      `Turno actualizado: Encargado ${updates.cashierName} • Base ${formatCOP(updates.initialCash)}`,
+      'success'
+    );
   };
 
   const handleCloseShift = (
@@ -1028,6 +1175,208 @@ export default function App() {
     showToast('Categorías restablecidas a los valores por defecto', 'success');
   };
 
+  // Supplier Traceability Handlers
+  const handleAddSupplier = (newSupplier: Supplier) => {
+    setSuppliers((prev) => [newSupplier, ...prev]);
+    showToast(`Proveedor "${newSupplier.name}" registrado exitosamente`, 'success');
+  };
+
+  const handleUpdateSupplier = (updatedSupplier: Supplier) => {
+    setSuppliers((prev) =>
+      prev.map((s) => (s.id === updatedSupplier.id ? updatedSupplier : s))
+    );
+    setProducts((prev) =>
+      prev.map((p) => {
+        let changed = false;
+        let pName = p.primarySupplierName;
+        if (p.primarySupplierId === updatedSupplier.id) {
+          pName = updatedSupplier.name;
+          changed = true;
+        }
+        const updatedQuotes = p.supplierQuotes?.map((q) => {
+          if (q.supplierId === updatedSupplier.id) {
+            changed = true;
+            return { ...q, supplierName: updatedSupplier.name };
+          }
+          return q;
+        });
+        return changed ? { ...p, primarySupplierName: pName, supplierQuotes: updatedQuotes } : p;
+      })
+    );
+    showToast(`Proveedor "${updatedSupplier.name}" actualizado`, 'success');
+  };
+
+  const handleDeleteSupplier = (supplierId: string) => {
+    const sup = suppliers.find((s) => s.id === supplierId);
+    setSuppliers((prev) => prev.filter((s) => s.id !== supplierId));
+    showToast(sup ? `Proveedor "${sup.name}" eliminado` : 'Proveedor eliminado', 'info');
+  };
+
+  const handleAddSupplierQuote = (quote: ProductSupplierQuote) => {
+    setProducts((prev) =>
+      prev.map((p) => {
+        if (p.id === quote.productId) {
+          const quotes = p.supplierQuotes || [];
+          const updatedQuotes = [...quotes, quote];
+          if (quote.isPreferred || quotes.length === 0) {
+            return {
+              ...p,
+              primarySupplierId: quote.supplierId,
+              primarySupplierName: quote.supplierName,
+              costPrice: quote.costPrice,
+              supplierQuotes: updatedQuotes.map((q) => ({
+                ...q,
+                isPreferred: q.id === quote.id,
+              })),
+            };
+          }
+          return { ...p, supplierQuotes: updatedQuotes };
+        }
+        return p;
+      })
+    );
+    showToast(`Cotización de "${quote.supplierName}" registrada`, 'success');
+  };
+
+  const handleUpdateSupplierQuote = (updatedQuote: ProductSupplierQuote) => {
+    setProducts((prev) =>
+      prev.map((p) => {
+        if (p.id === updatedQuote.productId) {
+          const quotes = p.supplierQuotes || [];
+          const updatedQuotes = quotes.map((q) => (q.id === updatedQuote.id ? updatedQuote : q));
+          if (updatedQuote.isPreferred) {
+            return {
+              ...p,
+              primarySupplierId: updatedQuote.supplierId,
+              primarySupplierName: updatedQuote.supplierName,
+              costPrice: updatedQuote.costPrice,
+              supplierQuotes: updatedQuotes.map((q) => ({
+                ...q,
+                isPreferred: q.id === updatedQuote.id,
+              })),
+            };
+          }
+          return { ...p, supplierQuotes: updatedQuotes };
+        }
+        return p;
+      })
+    );
+    showToast('Cotización actualizada', 'success');
+  };
+
+  const handleSetPreferredQuote = (productId: string | number, quoteId: string) => {
+    setProducts((prev) =>
+      prev.map((p) => {
+        if (p.id === productId) {
+          const quotes = p.supplierQuotes || [];
+          const selected = quotes.find((q) => q.id === quoteId);
+          if (!selected) return p;
+          return {
+            ...p,
+            primarySupplierId: selected.supplierId,
+            primarySupplierName: selected.supplierName,
+            costPrice: selected.costPrice,
+            supplierQuotes: quotes.map((q) => ({
+              ...q,
+              isPreferred: q.id === quoteId,
+            })),
+          };
+        }
+        return p;
+      })
+    );
+    showToast('Proveedor preferido actualizado', 'success');
+  };
+
+  const handleCreateSupplierOrder = (newOrder: SupplierOrder) => {
+    setSupplierOrders((prev) => [newOrder, ...prev]);
+    showToast(`Pedido de abastecimiento guardado para ${newOrder.supplierName}`, 'success');
+  };
+
+  const handleReceiveSupplierOrder = (orderId: string, recordCashOutflow: boolean) => {
+    const targetOrder = supplierOrders.find((o) => o.id === orderId);
+    if (!targetOrder) return;
+
+    // Increment inventory stock for each product in order
+    setProducts((prev) =>
+      prev.map((p) => {
+        const itemInOrder = targetOrder.items.find((i) => i.productId === p.id);
+        if (itemInOrder) {
+          return {
+            ...p,
+            stock: p.stock + itemInOrder.orderQuantity,
+            costPrice: itemInOrder.unitCost > 0 ? itemInOrder.unitCost : p.costPrice,
+          };
+        }
+        return p;
+      })
+    );
+
+    // Update order status to received
+    setSupplierOrders((prev) =>
+      prev.map((o) =>
+        o.id === orderId
+          ? {
+              ...o,
+              status: 'Recibido' as const,
+              receivedAt: new Date(),
+              receivedBy: currentShift?.cashierName || 'Don Esteban',
+              paidWithCashMovement: recordCashOutflow,
+            }
+          : o
+      )
+    );
+
+    // If outflow requested, deduct from cash shift
+    if (recordCashOutflow && currentShift && currentShift.status === 'open' && targetOrder.totalEstimatedCost > 0) {
+      const movement: CashMovement = {
+        id: `mov-${Date.now()}`,
+        timestamp: new Date(),
+        type: 'outflow',
+        category: 'Pago a Proveedor',
+        amount: targetOrder.totalEstimatedCost,
+        reason: `Pago de pedido recibido a ${targetOrder.supplierName}`,
+        cashierName: currentShift.cashierName,
+      };
+
+      setCurrentShift((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          outflows: prev.outflows + targetOrder.totalEstimatedCost,
+          movements: [movement, ...prev.movements],
+        };
+      });
+    }
+
+    showToast(`Pedido recibido: Stock sumado al inventario`, 'success');
+  };
+
+  const handleCancelSupplierOrder = (orderId: string) => {
+    setSupplierOrders((prev) =>
+      prev.map((o) => (o.id === orderId ? { ...o, status: 'Cancelado' as const } : o))
+    );
+    showToast('Orden de abastecimiento cancelada', 'info');
+  };
+
+  const handleResetSuppliersAndQuotes = () => {
+    setSuppliers(INITIAL_SUPPLIERS);
+    setProducts((prev) =>
+      prev.map((p) => {
+        const initMatch = INITIAL_PRODUCTS.find((ip) => String(ip.id) === String(p.id) || ip.barcode === p.barcode);
+        return {
+          ...p,
+          primarySupplierId: initMatch?.primarySupplierId || p.primarySupplierId,
+          primarySupplierName: initMatch?.primarySupplierName || p.primarySupplierName,
+          supplierQuotes: (initMatch?.supplierQuotes && initMatch.supplierQuotes.length > 0)
+            ? initMatch.supplierQuotes
+            : (p.supplierQuotes || []),
+        };
+      })
+    );
+    showToast('Directorio de proveedores y cotizaciones restablecidos exitosamente', 'success');
+  };
+
   const handleBulkUpdateStock = (updates: { id: string | number; newStock: number }[]) => {
     setProducts((prev) =>
       prev.map((p) => {
@@ -1046,12 +1395,12 @@ export default function App() {
   const totalSalesToday = salesHistory.reduce((sum, tx) => sum + tx.total, 0);
 
   return (
-    <div className="min-h-screen bg-[#1b2631] text-[#222E3A] flex flex-col font-['Plus_Jakarta_Sans',sans-serif] relative selection:bg-[#BC6343] selection:text-white overflow-x-hidden">
-      {/* Background Wallpaper Image for Liquid Glass Verification */}
+    <div className="min-h-screen bg-[#1b2631] text-[#222E3A] flex flex-col font-secondary relative selection:bg-[#BC6343] selection:text-white overflow-x-hidden">
+      {/* Background Wallpaper Image */}
       <div 
         className="fixed inset-0 pointer-events-none z-0 bg-cover bg-center bg-no-repeat transition-all duration-700"
         style={{ 
-          backgroundImage: `url('https://res.cloudinary.com/unhl90nr/image/upload/v1788302287/Dise%C3%B1o_sin_t%C3%ADtulo_16_uhgvho.webp')`
+          backgroundImage: `url('https://res.cloudinary.com/unhl90nr/image/upload/v1788303386/Belleza_Carmes%C3%AD_iclhmj.webp')`
         }}
       >
         {/* Ambient Overlay to blend with brand warm palette and keep high contrast */}
@@ -1096,6 +1445,11 @@ export default function App() {
           onOpenCashShift={() => setIsCashShiftModalOpen(true)}
           onOpenCustomers={() => setIsCustomerModalOpen(true)}
           onOpenInventoryManager={() => setIsInventoryModalOpen(true)}
+          onOpenSuppliers={() => {
+            setSupplierModalInitialTab('directory');
+            setSupplierModalInitialProductId(undefined);
+            setIsSuppliersModalOpen(true);
+          }}
           onOpenReports={() => setIsReportsModalOpen(true)}
           onOpenManagerDashboard={() => setIsManagerDashboardOpen(true)}
           showCategoryGallery={showCategoryGallery}
@@ -1200,8 +1554,11 @@ export default function App() {
         currentShift={currentShift}
         shiftHistory={shiftHistory}
         onOpenShift={handleOpenShift}
+        onUpdateShift={handleUpdateCurrentShift}
         onCloseShift={handleCloseShift}
         onAddCashMovement={handleAddCashMovement}
+        transactions={salesHistory}
+        debtPayments={customers.flatMap((c) => c.paymentHistory || [])}
       />
 
       {/* Inventory, Stock & Kardex Manager Modal */}
@@ -1226,6 +1583,36 @@ export default function App() {
           setIsInventoryModalOpen(false);
           setIsManageCategoriesOpen(true);
         }}
+        onOpenSuppliersModal={(prodId, tab) => {
+          setIsInventoryModalOpen(false);
+          setSupplierModalInitialProductId(prodId);
+          setSupplierModalInitialTab(tab || 'reorder');
+          setIsSuppliersModalOpen(true);
+        }}
+      />
+
+      {/* Suppliers, Traceability, Quotation Comparison & Purchase Orders Modal */}
+      <SuppliersModal
+        isOpen={isSuppliersModalOpen}
+        onClose={() => {
+          setIsSuppliersModalOpen(false);
+          setSupplierModalInitialProductId(undefined);
+        }}
+        suppliers={suppliers}
+        products={products}
+        supplierOrders={supplierOrders}
+        onAddSupplier={handleAddSupplier}
+        onUpdateSupplier={handleUpdateSupplier}
+        onDeleteSupplier={handleDeleteSupplier}
+        onAddSupplierQuote={handleAddSupplierQuote}
+        onUpdateSupplierQuote={handleUpdateSupplierQuote}
+        onSetPreferredQuote={handleSetPreferredQuote}
+        onCreateSupplierOrder={handleCreateSupplierOrder}
+        onReceiveSupplierOrder={handleReceiveSupplierOrder}
+        onCancelSupplierOrder={handleCancelSupplierOrder}
+        onResetSuppliersAndQuotes={handleResetSuppliersAndQuotes}
+        initialTab={supplierModalInitialTab}
+        selectedProductIdForCompare={supplierModalInitialProductId}
       />
 
       {/* Financial Reports & Analytics Dashboard Modal */}
@@ -1319,6 +1706,7 @@ export default function App() {
         onDeleteProduct={handleDeleteProduct}
         editingProduct={editingProduct}
         categories={categories}
+        suppliers={suppliers}
         initialBarcode={scannedBarcodeForProduct}
         onOpenScanner={handleOpenScannerForProduct}
         onOpenManageCategories={() => {

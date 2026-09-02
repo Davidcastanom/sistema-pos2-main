@@ -486,7 +486,10 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
               ) : (
                 <div className="p-2.5 rounded-none bg-amber-50 border border-amber-300 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div className="text-xs text-amber-900">
-                    <p className="font-bold">⚠️ Producto no registrado</p>
+                    <p className="font-bold flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                      <span>Producto no registrado</span>
+                    </p>
                     <p className="text-[11px] text-amber-800">
                       El código <strong className="font-mono">{scannedResult.barcode}</strong> no está en el catálogo.
                     </p>
