@@ -39,3 +39,8 @@
     "vite": "^6.2.3"
   }
 }
+{
+  "scripts": {
+    "build": "[my-framework] build --output public"
+  }
+}
