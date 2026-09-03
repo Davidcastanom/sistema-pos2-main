@@ -10,13 +10,12 @@ import {
   X, 
   CheckCircle, 
   Calculator,
-  Coins,
   UserCheck,
-  Percent,
-  Receipt,
   Users,
-  RotateCcw,
-  Info
+  AlertCircle,
+  AlertTriangle,
+  Loader2,
+  Check
 } from 'lucide-react';
 
 interface PaymentModalProps {
@@ -54,14 +53,14 @@ function getColombianChangeBreakdown(changeAmount: number): string[] {
     { value: 50, name: 'moneda(s) de $50' },
   ];
 
-  let remaining = changeAmount;
   const breakdown: string[] = [];
+  let remaining = changeAmount;
 
   for (const bill of bills) {
     if (remaining >= bill.value) {
       const count = Math.floor(remaining / bill.value);
-      remaining = remaining % bill.value;
       breakdown.push(`${count} ${bill.name}`);
+      remaining = remaining % bill.value;
     }
   }
 
@@ -71,10 +70,8 @@ function getColombianChangeBreakdown(changeAmount: number): string[] {
 export const PaymentModal: React.FC<PaymentModalProps> = ({
   isOpen,
   onClose,
-  cart,
-  subtotal,
-  discount,
   total,
+  discount,
   customerName,
   onCustomerNameChange,
   customers = [],
@@ -84,10 +81,15 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethodType>('Efectivo');
   const [amountReceived, setAmountReceived] = useState<number>(total);
   const [customRef, setCustomRef] = useState<string>('');
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [creditValidationError, setCreditValidationError] = useState<boolean>(false);
 
   useEffect(() => {
     if (isOpen) {
       setAmountReceived(total);
+      setCustomRef('');
+      setIsProcessing(false);
+      setCreditValidationError(false);
     }
   }, [isOpen, total]);
 
@@ -97,7 +99,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   const isInsufficientCash = selectedMethod === 'Efectivo' && amountReceived < total;
   const changeBreakdown = getColombianChangeBreakdown(change);
 
-  // Colombian cash bill presets with standardized single color styling
+  // Colombian cash bill presets
   const billButtons = [
     { label: '$2.000', value: 2000 },
     { label: '$5.000', value: 5000 },
@@ -108,7 +110,18 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   ];
 
   const handleFinish = () => {
-    if (isInsufficientCash) return;
+    if (isInsufficientCash || isProcessing) return;
+
+    // Validate customer when paying with credit/fiado
+    if (
+      selectedMethod === 'Crédito / Fiado' &&
+      (!customerName || customerName.trim() === '' || customerName === 'Consumidor Final')
+    ) {
+      setCreditValidationError(true);
+      return;
+    }
+
+    setIsProcessing(true);
 
     // Trigger confetti celebration
     try {
@@ -122,43 +135,56 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
       // ignore
     }
 
-    onCompleteSale(
-      selectedMethod,
-      selectedMethod === 'Efectivo' ? amountReceived : total,
-      selectedMethod === 'Efectivo' ? change : 0,
-      customRef
-    );
+    // Short feedback delay so user sees processing and receipt generation
+    setTimeout(() => {
+      onCompleteSale(
+        selectedMethod,
+        selectedMethod === 'Efectivo' ? amountReceived : total,
+        selectedMethod === 'Efectivo' ? change : 0,
+        customRef
+      );
+      setIsProcessing(false);
+    }, 400);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleFinish();
+    }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-[#222E3A]/80 backdrop-blur-md animate-fadeIn">
-      <div className="bg-[#FFF9F0] rounded-none max-w-lg w-full shadow-2xl border-2 border-[#214C6A] overflow-hidden flex flex-col max-h-[92vh] text-[#222E3A]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-[#222E3A]/80 backdrop-blur-md animate-fadeIn">
+      <div className="bg-[#FFF9F0] rounded-none max-w-lg w-full shadow-2xl border-2 border-[#214C6A] overflow-hidden flex flex-col max-h-[94vh] text-[#222E3A]">
         {/* Modal Header */}
-        <div className="p-4 sm:p-5 bg-[#214C6A] border-b border-[#214C6A] text-white flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-none bg-[#BC6343] border border-white/20 flex items-center justify-center text-white shadow-xs">
-              <DollarSign className="w-5 h-5 text-[#FFF9F0]" />
+        <div className="p-3.5 sm:p-4 bg-[#214C6A] border-b border-white/20 text-white flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-none bg-[#BC6343] border border-white/20 flex items-center justify-center text-white shadow-xs">
+              <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 text-[#FFF9F0]" />
             </div>
             <div>
               <span className="text-[10px] uppercase tracking-wider font-extrabold text-[#EB9D52]">
                 Punto de Venta • Caja Principal
               </span>
-              <h3 className="text-lg sm:text-xl font-bold font-title text-[#FFF9F0]">
-                Confirmar Cobro de Venta
+              <h3 className="text-base sm:text-lg font-bold font-title text-[#FFF9F0]">
+                Confirmar Cobro y Facturar
               </h3>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-7 h-7 rounded-none bg-[#1a3d55] hover:bg-[#0f2433] flex items-center justify-center text-[#F6E1C6] hover:text-white transition-colors cursor-pointer border border-white/10"
+            disabled={isProcessing}
+            className="w-7 h-7 rounded-none bg-[#1a3d55] hover:bg-[#0f2433] flex items-center justify-center text-[#F6E1C6] hover:text-white transition-colors cursor-pointer border border-white/10 disabled:opacity-50"
+            title="Cancelar cobro"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1">
+        <div className="p-3.5 sm:p-5 overflow-y-auto space-y-3.5 flex-1" onKeyDown={handleKeyDown}>
           {/* Big Total Box */}
-          <div className="bg-[#F6E1C6]/70 rounded-none p-3.5 border border-[#214C6A]/20 text-center shadow-xs relative">
+          <div className="bg-[#F6E1C6]/70 rounded-none p-3 border border-[#214C6A]/20 text-center shadow-xs relative">
             <span className="text-xs font-bold text-[#56291D] uppercase tracking-wider">
               Total a Recibir del Cliente (COP)
             </span>
@@ -172,7 +198,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             )}
           </div>
 
-          {/* Customer Selection Box with Instant Clear and Set Controls */}
+          {/* Customer Selection Box */}
           <div className="bg-[#FFF9F0] border-2 border-[#214C6A]/30 p-2.5 space-y-2">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold text-[#214C6A] flex items-center gap-1.5">
@@ -187,14 +213,14 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                       onClick={() => onCustomerNameChange('Consumidor Final')}
                       className="text-[10px] text-rose-700 hover:text-rose-900 font-bold underline cursor-pointer"
                     >
-                      ✕ Quitar nombre (Consumidor Final)
+                      Consumidor Final
                     </button>
                   )}
                   {onOpenCustomerDirectory && (
                     <button
                       type="button"
                       onClick={onOpenCustomerDirectory}
-                      className="px-2 py-0.5 bg-[#214C6A] text-white text-[10px] font-bold rounded-none cursor-pointer flex items-center gap-1"
+                      className="px-2 py-0.5 bg-[#214C6A] text-white text-[10px] font-bold rounded-none cursor-pointer flex items-center gap-1 hover:bg-[#1a3d55]"
                     >
                       <Users className="w-3 h-3" />
                       <span>Directorio</span>
@@ -208,7 +234,12 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               <input
                 type="text"
                 value={customerName}
-                onChange={(e) => onCustomerNameChange && onCustomerNameChange(e.target.value)}
+                onChange={(e) => {
+                  if (onCustomerNameChange) {
+                    onCustomerNameChange(e.target.value);
+                    if (creditValidationError) setCreditValidationError(false);
+                  }
+                }}
                 placeholder="Nombre del cliente o NIT / Cédula"
                 className="flex-1 text-xs px-2.5 py-1.5 bg-white border border-[#214C6A]/30 rounded-none font-bold text-[#214C6A] focus:outline-none focus:ring-1 focus:ring-[#214C6A]"
               />
@@ -219,7 +250,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                   className="px-2 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-none cursor-pointer"
                   title="Borrar campo"
                 >
-                  ✕
+                  <X className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>
@@ -231,7 +262,10 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                   <button
                     key={c.id}
                     type="button"
-                    onClick={() => onCustomerNameChange(c.name)}
+                    onClick={() => {
+                      onCustomerNameChange(c.name);
+                      if (creditValidationError) setCreditValidationError(false);
+                    }}
                     className={`px-2 py-0.5 text-[9px] font-bold shrink-0 border transition-all cursor-pointer ${
                       customerName === c.name
                         ? 'bg-[#214C6A] text-white border-[#214C6A]'
@@ -245,21 +279,33 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             )}
           </div>
 
+          {/* Validation Alert for Credit without customer */}
+          {creditValidationError && (
+            <div className="p-2.5 bg-rose-50 border-2 border-rose-500 text-rose-900 text-xs rounded-none flex items-start gap-2 animate-fadeIn">
+              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+              <div>
+                <strong className="block font-bold">¡Cliente requerido para fiados!</strong>
+                <span>Debes ingresar el nombre del cliente o seleccionarlo del directorio para anotar la deuda en su cuenta de crédito.</span>
+              </div>
+            </div>
+          )}
+
           {/* Payment Method Selector */}
           <div>
             <label className="text-xs font-bold text-[#214C6A] mb-2 block uppercase tracking-wide">
               1. Selecciona cómo paga el cliente:
             </label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2">
               <button
                 type="button"
                 onClick={() => {
                   setSelectedMethod('Efectivo');
                   setAmountReceived(total);
+                  setCreditValidationError(false);
                 }}
                 className={`p-2.5 rounded-none border-2 flex flex-col items-center justify-center gap-1 text-xs font-bold transition-all cursor-pointer ${
                   selectedMethod === 'Efectivo'
-                    ? 'bg-[#BC6343] text-white border-[#BC6343] shadow-xs'
+                    ? 'bg-[#214C6A] text-white border-[#214C6A] shadow-xs'
                     : 'bg-[#FFF9F0] hover:bg-[#F6E1C6]/50 text-[#222E3A] border-[#214C6A]/20'
                 }`}
               >
@@ -269,7 +315,10 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
               <button
                 type="button"
-                onClick={() => setSelectedMethod('Nequi / Daviplata')}
+                onClick={() => {
+                  setSelectedMethod('Nequi / Daviplata');
+                  setCreditValidationError(false);
+                }}
                 className={`p-2.5 rounded-none border-2 flex flex-col items-center justify-center gap-1 text-xs font-bold transition-all cursor-pointer ${
                   selectedMethod === 'Nequi / Daviplata'
                     ? 'bg-[#214C6A] text-white border-[#214C6A] shadow-xs'
@@ -282,7 +331,10 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
               <button
                 type="button"
-                onClick={() => setSelectedMethod('Tarjeta Débito/Crédito')}
+                onClick={() => {
+                  setSelectedMethod('Tarjeta Débito/Crédito');
+                  setCreditValidationError(false);
+                }}
                 className={`p-2.5 rounded-none border-2 flex flex-col items-center justify-center gap-1 text-xs font-bold transition-all cursor-pointer ${
                   selectedMethod === 'Tarjeta Débito/Crédito'
                     ? 'bg-[#214C6A] text-white border-[#214C6A] shadow-xs'
@@ -310,7 +362,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
           {/* Dynamic Content: Efectivo with Bill Helper & Change Calculator */}
           {selectedMethod === 'Efectivo' && (
-            <div className="space-y-3 bg-[#F6E1C6]/50 p-3.5 rounded-none border border-[#214C6A]/20">
+            <div className="space-y-3 bg-[#F6E1C6]/50 p-3 sm:p-3.5 rounded-none border border-[#214C6A]/20">
               <label className="text-xs font-bold text-[#214C6A] flex items-center gap-1.5">
                 <Calculator className="w-4 h-4 text-[#BC6343]" />
                 2. ¿Cuánto dinero en efectivo te entregó el cliente?
@@ -324,16 +376,17 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                   </span>
                   <input
                     type="number"
-                    value={amountReceived || ''}
-                    onChange={(e) => setAmountReceived(Number(e.target.value))}
+                    value={amountReceived ? amountReceived : ''}
+                    onChange={(e) => setAmountReceived(Number(e.target.value) || 0)}
                     placeholder="0"
                     className="w-full pl-8 pr-3 py-2 bg-[#FFF9F0] border border-[#214C6A]/30 rounded-none text-base font-black text-[#222E3A] focus:ring-1 focus:ring-[#214C6A] focus:outline-none"
+                    autoFocus
                   />
                 </div>
                 <button
                   type="button"
                   onClick={() => setAmountReceived(total)}
-                  className="px-3.5 py-2 rounded-none bg-[#214C6A] hover:bg-[#1a3d55] text-white text-xs font-extrabold shadow-xs cursor-pointer transition-all active:scale-95"
+                  className="px-3.5 py-2 rounded-none bg-[#214C6A] hover:bg-[#1a3d55] text-white text-xs font-extrabold shadow-xs cursor-pointer transition-all active:scale-95 shrink-0"
                 >
                   Pago Exacto
                 </button>
@@ -365,40 +418,44 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                 </div>
               </div>
 
-              {/* Cambio / Vueltas Highlight Box */}
-              <div className={`p-3 rounded-none border transition-all ${
-                isInsufficientCash
-                  ? 'bg-rose-50 border-rose-300 text-rose-800'
-                  : 'bg-emerald-50 border-emerald-300 text-emerald-900 shadow-2xs'
-              }`}>
-                <div className="flex items-center justify-between">
+              {/* Insufficient Cash Warning */}
+              {isInsufficientCash && (
+                <div className="p-2 bg-rose-50 border border-rose-300 text-rose-900 text-xs flex items-center justify-between gap-2 animate-fadeIn">
                   <div className="flex items-center gap-1.5">
-                    <Coins className="w-4 h-4" />
-                    <span className="text-xs font-extrabold uppercase tracking-wide">
-                      {isInsufficientCash ? 'Dinero Insuficiente:' : 'Vueltas / Cambio a Entregar:'}
-                    </span>
+                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span>Faltan <strong>{formatCOP(total - amountReceived)}</strong> para el total</span>
                   </div>
-                  <div className="text-2xl font-black font-secondary">
-                    {isInsufficientCash ? (
-                      <span className="text-rose-700">Faltan {formatCOP(total - amountReceived)}</span>
-                    ) : (
-                      <span className="text-emerald-800">{formatCOP(change)}</span>
-                    )}
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setAmountReceived(total)}
+                    className="px-2 py-0.5 bg-rose-700 hover:bg-rose-800 text-white font-bold text-[10px] cursor-pointer"
+                  >
+                    Completar
+                  </button>
+                </div>
+              )}
+
+              {/* Change Box Display */}
+              <div className="bg-[#FFF9F0] p-3 rounded-none border border-[#214C6A]/20">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs font-bold text-[#56291D] uppercase">
+                    Cambio / Vueltas a entregar:
+                  </span>
+                  <span className="text-2xl font-black text-[#214C6A] font-secondary">
+                    {formatCOP(change)}
+                  </span>
                 </div>
 
-                {/* Smart Change Bill Breakdown */}
-                {!isInsufficientCash && change > 0 && changeBreakdown.length > 0 && (
-                  <div className="mt-2 pt-2 border-t border-emerald-200 text-[11px] text-emerald-800">
-                    <strong className="flex items-center gap-1 font-semibold mb-0.5">
-                      <Info className="w-3 h-3 text-emerald-700 shrink-0" />
-                      <span>Sugerencia de billetes a devolver:</span>
-                    </strong>
-                    <div className="flex flex-wrap gap-1.5 mt-1">
+                {change > 0 && changeBreakdown.length > 0 && (
+                  <div className="mt-2 pt-2 border-t border-[#214C6A]/10 text-xs">
+                    <span className="font-semibold text-[#56291D] block mb-1">
+                      Sugerencia de billetes y monedas:
+                    </span>
+                    <div className="flex flex-wrap gap-1">
                       {changeBreakdown.map((item, idx) => (
                         <span
                           key={idx}
-                          className="px-2 py-0.5 rounded-none bg-emerald-100 border border-emerald-300 text-emerald-900 font-bold"
+                          className="px-2 py-0.5 rounded-none bg-emerald-100 border border-emerald-300 text-emerald-900 font-bold text-[10px]"
                         >
                           {item}
                         </span>
@@ -412,9 +469,9 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
           {/* Nequi / Daviplata instructions */}
           {selectedMethod === 'Nequi / Daviplata' && (
-            <div className="bg-[#F6E1C6]/50 p-3.5 rounded-none border border-[#214C6A]/20 text-center space-y-2">
-              <div className="w-10 h-10 rounded-none bg-[#214C6A] text-[#FFF9F0] flex items-center justify-center mx-auto shadow-xs">
-                <Smartphone className="w-5 h-5" />
+            <div className="bg-[#F6E1C6]/50 p-3 sm:p-3.5 rounded-none border border-[#214C6A]/20 text-center space-y-2">
+              <div className="w-9 h-9 rounded-none bg-[#214C6A] text-[#FFF9F0] flex items-center justify-center mx-auto shadow-xs">
+                <Smartphone className="w-5 h-5 text-[#EB9D52]" />
               </div>
               <div>
                 <h4 className="text-sm font-bold text-[#214C6A]">Transferencia Nequi / Daviplata</h4>
@@ -433,9 +490,9 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
           {/* Datáfono / Tarjeta */}
           {selectedMethod === 'Tarjeta Débito/Crédito' && (
-            <div className="bg-[#F6E1C6]/50 p-3.5 rounded-none border border-[#214C6A]/20 text-center space-y-2">
-              <div className="w-10 h-10 rounded-none bg-[#214C6A] text-[#FFF9F0] flex items-center justify-center mx-auto shadow-xs">
-                <CreditCard className="w-5 h-5" />
+            <div className="bg-[#F6E1C6]/50 p-3 sm:p-3.5 rounded-none border border-[#214C6A]/20 text-center space-y-2">
+              <div className="w-9 h-9 rounded-none bg-[#214C6A] text-[#FFF9F0] flex items-center justify-center mx-auto shadow-xs">
+                <CreditCard className="w-5 h-5 text-[#EB9D52]" />
               </div>
               <div>
                 <h4 className="text-sm font-bold text-[#214C6A]">Datáfono / Redeban / Bold</h4>
@@ -453,7 +510,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
           {/* Cuaderno de Fiados */}
           {selectedMethod === 'Crédito / Fiado' && (
-            <div className="bg-[#F6E1C6]/50 p-3.5 rounded-none border border-[#214C6A]/20 space-y-2">
+            <div className="bg-[#F6E1C6]/50 p-3 sm:p-3.5 rounded-none border border-[#214C6A]/20 space-y-2">
               <div className="flex items-center gap-2 text-[#56291D]">
                 <BookOpen className="w-5 h-5 text-[#BC6343]" />
                 <h4 className="text-sm font-bold">Anotar en Cuaderno de Fiados</h4>
@@ -473,11 +530,12 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
         </div>
 
         {/* Modal Actions */}
-        <div className="p-3.5 bg-[#FFF9F0] border-t-2 border-[#214C6A] flex items-center justify-between gap-3">
+        <div className="p-3 sm:p-3.5 bg-[#FFF9F0] border-t-2 border-[#214C6A] flex items-center justify-between gap-2.5 shrink-0">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2.5 rounded-none bg-[#F6E1C6]/60 hover:bg-[#F6E1C6] border border-[#214C6A]/20 text-[#56291D] text-xs font-bold transition-all cursor-pointer"
+            disabled={isProcessing}
+            className="px-3.5 py-2.5 rounded-none bg-[#F6E1C6]/60 hover:bg-[#F6E1C6] border border-[#214C6A]/20 text-[#56291D] text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
           >
             Cancelar
           </button>
@@ -485,15 +543,23 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             type="button"
             id="btn-finalizar-venta"
             onClick={handleFinish}
-            disabled={isInsufficientCash}
-            className="flex-1 py-3.5 px-5 rounded-none btn-checkout-prominent disabled:opacity-40 disabled:cursor-not-allowed text-[#FFF9F0] text-sm font-black flex items-center justify-center gap-2 shadow-xl active:scale-95 transition-all cursor-pointer"
+            disabled={isInsufficientCash || isProcessing}
+            className="flex-1 py-3 px-3 sm:px-4 rounded-none btn-checkout-prominent disabled:opacity-40 disabled:cursor-not-allowed text-[#FFF9F0] text-xs sm:text-sm font-black flex items-center justify-center gap-2 shadow-xl active:scale-95 transition-all cursor-pointer"
           >
-            <CheckCircle className="w-5 h-5 text-[#EB9D52]" />
-            <span>Finalizar y Registrar Venta • {formatCOP(total)}</span>
+            {isProcessing ? (
+              <>
+                <Loader2 className="w-4 h-4 text-[#EB9D52] animate-spin" />
+                <span>Generando Factura POS...</span>
+              </>
+            ) : (
+              <>
+                <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-[#EB9D52]" />
+                <span className="truncate">Finalizar y Facturar • {formatCOP(total)}</span>
+              </>
+            )}
           </button>
         </div>
       </div>
     </div>
   );
 };
-

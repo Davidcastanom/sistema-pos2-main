@@ -305,8 +305,8 @@ export const ReportsModal: React.FC<ReportsModalProps> = ({
               Últimas Facturas Emitidas ({filteredSales.length})
             </h4>
 
-            <div className="max-h-52 overflow-y-auto border border-[#214C6A]/10">
-              <table className="w-full text-left text-xs border-collapse">
+            <div className="max-h-52 overflow-auto border border-[#214C6A]/10">
+              <table className="w-full text-left text-xs border-collapse min-w-[500px]">
                 <thead>
                   <tr className="bg-[#214C6A] text-[#FFF9F0] text-[10px] font-bold uppercase">
                     <th className="p-2">Factura</th>

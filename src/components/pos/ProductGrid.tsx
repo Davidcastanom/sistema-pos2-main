@@ -13,7 +13,11 @@ import {
   Star,
   Edit3,
   Percent,
-  X
+  X,
+  Package,
+  Barcode,
+  Tag,
+  AlertCircle
 } from 'lucide-react';
 
 interface ProductGridProps {

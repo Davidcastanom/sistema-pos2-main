@@ -92,7 +92,7 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({
       subtitle: cat.subtitle,
       imageUrl: normalizeImageUrl(cat.imageUrl),
       itemCount: count,
-      badge: selectedCategory === cat.name ? '✓ Seleccionada' : undefined,
+      badge: selectedCategory === cat.name ? 'Seleccionada' : undefined,
     };
   });
 
@@ -159,7 +159,7 @@ export const CategoryNav: React.FC<CategoryNavProps> = ({
                 onClick={onToggleCategoryGallery}
                 className="text-xs text-[#56291D] hover:text-[#214C6A] bg-white/60 hover:bg-white px-3 py-1.5 rounded-none border border-white/80 backdrop-blur-md shadow-xs cursor-pointer transition-colors font-bold"
               >
-                Cerrar Galería ✕
+                Cerrar Galería
               </button>
             </div>
           </div>

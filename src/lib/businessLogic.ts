@@ -89,7 +89,7 @@ export function calculateBreakEven(
   } else if (progressPercentage < 100) {
     motivationalMessage = `¡A un paso de coronar el mes! Estás al ${progressPercentage}% de cubrir todos los gastos fijos (${formatCOP(totalFixedCosts)}). ¡La recta final!`;
   } else {
-    motivationalMessage = `🎉 ¡Felicitaciones! Has superado el 100% de tu punto de equilibrio. Ya cubriste los ${formatCOP(totalFixedCosts)} de gastos fijos. ¡A partir de aquí, las ventas son ganancia libre para tu bolsillo!`;
+    motivationalMessage = `¡Felicitaciones! Has superado el 100% de tu punto de equilibrio. Ya cubriste los ${formatCOP(totalFixedCosts)} de gastos fijos. ¡A partir de aquí, las ventas son ganancia libre para tu bolsillo!`;
   }
 
   // Average price of a product for estimated units

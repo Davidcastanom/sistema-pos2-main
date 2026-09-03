@@ -459,14 +459,14 @@ export const InventoryManagerModal: React.FC<InventoryManagerModalProps> = ({
                     }}
                     className="text-xs text-[#214C6A] hover:underline font-bold cursor-pointer"
                   >
-                    Abrir en Modal Completo ↗
+                    Abrir en Modal Completo
                   </button>
                   <button
                     type="button"
                     onClick={() => setEditingProduct(null)}
                     className="text-xs text-[#63665B] hover:text-[#e74c3c] font-bold cursor-pointer"
                   >
-                    ✕ Cancelar
+                    Cancelar
                   </button>
                 </div>
               </div>
@@ -593,8 +593,8 @@ export const InventoryManagerModal: React.FC<InventoryManagerModalProps> = ({
           )}
 
           {/* Products Table */}
-          <div className="border border-[#214C6A]/20 bg-white overflow-hidden shadow-2xs">
-            <table className="w-full text-left text-xs border-collapse">
+          <div className="border border-[#214C6A]/20 bg-white overflow-x-auto shadow-2xs">
+            <table className="w-full text-left text-xs border-collapse min-w-[720px]">
               <thead>
                 <tr className="bg-[#214C6A] text-[#FFF9F0] text-[11px] font-bold uppercase tracking-wider">
                   <th className="p-2">Producto</th>

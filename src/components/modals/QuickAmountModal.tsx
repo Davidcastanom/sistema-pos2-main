@@ -471,9 +471,9 @@ export const QuickAmountModal: React.FC<QuickAmountModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setShowAddForm(false)}
-                    className="text-xs text-[#63665B] hover:text-[#222E3A]"
+                    className="p-0.5 text-[#63665B] hover:text-[#222E3A] cursor-pointer"
                   >
-                    ✕
+                    <X className="w-3.5 h-3.5" />
                   </button>
                 </div>
 
@@ -594,10 +594,10 @@ export const QuickAmountModal: React.FC<QuickAmountModalProps> = ({
                       <button
                         type="button"
                         onClick={(e) => handleRemoveCategory(preset.id, e)}
-                        className="absolute -top-1 -right-1 w-4 h-4 bg-rose-600 hover:bg-rose-700 text-white rounded-none flex items-center justify-center text-[10px] font-black shadow-xs cursor-pointer z-10"
+                        className="absolute -top-1 -right-1 w-4 h-4 bg-rose-600 hover:bg-rose-700 text-white rounded-none flex items-center justify-center shadow-xs cursor-pointer z-10"
                         title={`Eliminar categoría ${preset.label}`}
                       >
-                        ✕
+                        <X className="w-3 h-3" />
                       </button>
                     )}
                   </div>

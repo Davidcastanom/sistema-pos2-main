@@ -436,7 +436,7 @@ export const CashShiftModal: React.FC<CashShiftModalProps> = ({
                           onClick={() => setIsEditingShift(false)}
                           className="text-xs text-[#63665B] hover:text-[#BC6343] font-bold px-2.5 py-1 border border-gray-300 hover:border-[#BC6343] cursor-pointer"
                         >
-                          ✕ Cancelar
+                          Cancelar
                         </button>
                       </div>
 
@@ -768,7 +768,7 @@ export const CashShiftModal: React.FC<CashShiftModalProps> = ({
                   onClick={() => setActiveTab('current')}
                   className="text-xs text-[#63665B] hover:text-[#e74c3c] font-bold"
                 >
-                  ✕ Volver
+                  Volver
                 </button>
               </div>
 

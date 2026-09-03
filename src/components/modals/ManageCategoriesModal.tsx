@@ -263,7 +263,7 @@ export const ManageCategoriesModal: React.FC<ManageCategoriesModalProps> = ({
                   onClick={handleCancelForm}
                   className="text-xs text-[#63665B] hover:text-rose-700 font-bold cursor-pointer"
                 >
-                  ✕ Cancelar
+                  Cancelar
                 </button>
               </div>
 
@@ -451,8 +451,8 @@ export const ManageCategoriesModal: React.FC<ManageCategoriesModalProps> = ({
           )}
 
           {/* Categories Grid / Table */}
-          <div className="border border-[#214C6A]/20 bg-white overflow-hidden shadow-2xs">
-            <table className="w-full text-left text-xs border-collapse">
+          <div className="border border-[#214C6A]/20 bg-white overflow-x-auto shadow-2xs">
+            <table className="w-full text-left text-xs border-collapse min-w-[560px]">
               <thead>
                 <tr className="bg-[#214C6A] text-[#FFF9F0] text-[11px] font-bold uppercase tracking-wider">
                   <th className="p-2.5">Categoría</th>

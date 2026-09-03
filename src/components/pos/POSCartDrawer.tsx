@@ -36,6 +36,7 @@ interface POSCartDrawerProps {
   onRestoreParkedSale: (parkedId: string) => void;
   onDeleteParkedSale: (parkedId: string) => void;
   onOpenQuickAmount: () => void;
+  onCloseMobileDrawer?: () => void;
 }
 
 const COMMON_CUSTOMERS = [
@@ -62,6 +63,7 @@ export const POSCartDrawer: React.FC<POSCartDrawerProps> = ({
   onRestoreParkedSale,
   onDeleteParkedSale,
   onOpenQuickAmount,
+  onCloseMobileDrawer,
 }) => {
   const [showDiscountSelector, setShowDiscountSelector] = useState(false);
   const [showParkedList, setShowParkedList] = useState(false);
@@ -137,16 +139,30 @@ export const POSCartDrawer: React.FC<POSCartDrawerProps> = ({
           </div>
         </div>
 
-        {/* Parked Accounts Button */}
-        {parkedSales.length > 0 && (
-          <button
-            onClick={() => setShowParkedList(!showParkedList)}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-none bg-[#EB9D52] text-[#222E3A] text-xs font-black shadow-xs hover:bg-[#d8873d] transition-all cursor-pointer backdrop-blur-xs border border-white/40"
-          >
-            <PauseCircle className="w-3.5 h-3.5" />
-            <span>En Espera ({parkedSales.length})</span>
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {/* Parked Accounts Button */}
+          {parkedSales.length > 0 && (
+            <button
+              onClick={() => setShowParkedList(!showParkedList)}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-none bg-[#EB9D52] text-[#222E3A] text-xs font-black shadow-xs hover:bg-[#d8873d] transition-all cursor-pointer backdrop-blur-xs border border-white/40"
+            >
+              <PauseCircle className="w-3.5 h-3.5" />
+              <span>En Espera ({parkedSales.length})</span>
+            </button>
+          )}
+
+          {/* Mobile Drawer Close Button */}
+          {onCloseMobileDrawer && (
+            <button
+              type="button"
+              onClick={onCloseMobileDrawer}
+              className="lg:hidden p-1.5 rounded-none bg-white/15 hover:bg-white/30 text-white cursor-pointer transition-colors border border-white/20"
+              title="Volver a los productos"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Parked Accounts Drawer view if toggled */}
@@ -158,7 +174,7 @@ export const POSCartDrawer: React.FC<POSCartDrawerProps> = ({
               onClick={() => setShowParkedList(false)}
               className="text-[10px] text-[#BC6343] hover:text-[#56291D] font-bold cursor-pointer uppercase"
             >
-              Cerrar ✕
+              Cerrar
             </button>
           </div>
           {parkedSales.map((ps) => {
@@ -212,7 +228,7 @@ export const POSCartDrawer: React.FC<POSCartDrawerProps> = ({
                 className="text-[10px] text-rose-700 hover:text-rose-900 font-bold underline cursor-pointer"
                 title="Quitar nombre del cliente y dejar Consumidor Final"
               >
-                ✕ Quitar (Consumidor Final)
+                Quitar (Consumidor Final)
               </button>
             )}
             {onOpenCustomerDirectory && (
@@ -244,7 +260,7 @@ export const POSCartDrawer: React.FC<POSCartDrawerProps> = ({
               className="px-2 py-1 bg-white/80 hover:bg-white text-slate-700 text-xs font-bold rounded-none cursor-pointer border border-white/70"
               title="Borrar campo de cliente"
             >
-              ✕
+              <X className="w-3.5 h-3.5" />
             </button>
           )}
         </div>

@@ -15,7 +15,12 @@ import {
   ShoppingBag,
   Zap,
   Volume2,
-  FlipHorizontal
+  FlipHorizontal,
+  ShieldCheck,
+  Clock,
+  Play,
+  Pause,
+  Plus
 } from 'lucide-react';
 
 interface BarcodeScannerModalProps {
@@ -48,6 +53,13 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
     timestamp: Date;
   } | null>(null);
   const [continuousMode, setContinuousMode] = useState(true);
+  
+  // Anti-duplicate cooldown settings (in seconds)
+  // 1.5s (rápido), 2.5s (recomendado POS), 4.0s (tranquilo), 0 (manual)
+  const [cooldownDuration, setCooldownDuration] = useState<number>(2.5);
+  const [isManualPaused, setIsManualPaused] = useState<boolean>(false);
+  const [cooldownRemaining, setCooldownRemaining] = useState<{ code: string; percent: number; seconds: number } | null>(null);
+
   const [isProcessingFile, setIsProcessingFile] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
   const [recentScans, setRecentScans] = useState<Array<{ barcode: string; product?: ProductItem; time: string }>>([]);
@@ -56,19 +68,108 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
   const readerElementId = 'barcode-camera-reader-viewport';
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // References for zero-overhead anti-duplicate throttling
+  const lastScannedCodeRef = useRef<string>('');
+  const lastScannedTimeRef = useRef<number>(0);
+  const isManualPausedRef = useRef<boolean>(false);
+  const cooldownDurationRef = useRef<number>(cooldownDuration);
+  cooldownDurationRef.current = cooldownDuration;
+
   // Clean raw barcode to extract digits
   const cleanBarcode = (raw: string): string => {
     const trimmed = raw.trim();
-    // If it has digits, prioritize them
+    // If it has digits or alphanumeric codes, prioritize them
     const digitsOnly = trimmed.replace(/[^0-9A-Za-z_-]/g, '');
     return digitsOnly || trimmed;
   };
 
+  // Cooldown countdown tracker for UI feedback
+  useEffect(() => {
+    if (!isOpen || activeTab !== 'camera') {
+      setCooldownRemaining(null);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const durationSec = cooldownDurationRef.current;
+      if (durationSec === 0) {
+        // Manual mode
+        if (isManualPausedRef.current && lastScannedCodeRef.current) {
+          setCooldownRemaining({
+            code: lastScannedCodeRef.current,
+            percent: 100,
+            seconds: 0,
+          });
+        } else {
+          setCooldownRemaining(null);
+        }
+        return;
+      }
+
+      const now = Date.now();
+      const elapsed = now - lastScannedTimeRef.current;
+      const totalMs = durationSec * 1000;
+
+      if (lastScannedCodeRef.current && elapsed < totalMs) {
+        const remainingMs = totalMs - elapsed;
+        const percent = Math.max(0, Math.min(100, (remainingMs / totalMs) * 100));
+        setCooldownRemaining({
+          code: lastScannedCodeRef.current,
+          percent,
+          seconds: Number((remainingMs / 1000).toFixed(1)),
+        });
+      } else {
+        setCooldownRemaining(null);
+      }
+    }, 100);
+
+    return () => clearInterval(interval);
+  }, [isOpen, activeTab]);
+
   const handleDetectedCode = (rawCode: string) => {
+    if (!rawCode) return;
+
+    // Fast check: If manual paused, ignore frame immediately with zero CPU overhead
+    if (isManualPausedRef.current) return;
+
     const barcode = cleanBarcode(rawCode);
     if (!barcode) return;
 
-    playBeep();
+    const now = Date.now();
+    const isSameCode = lastScannedCodeRef.current === barcode;
+    const currentDurationSec = cooldownDurationRef.current;
+
+    // Determine required cooldown:
+    // If same code: use configured cooldownDuration (or infinite if manual)
+    // If different code: use brief 800ms safety delay to avoid unintentional multi-scan
+    const requiredCooldownMs = isSameCode
+      ? (currentDurationSec === 0 ? Infinity : currentDurationSec * 1000)
+      : 800;
+
+    const elapsed = now - lastScannedTimeRef.current;
+    if (elapsed < requiredCooldownMs) {
+      // INSTANT FAST RETURN: Ignore redundant frame without re-rendering or searching arrays
+      return;
+    }
+
+    // Passed anti-duplicate check: Commit scan
+    lastScannedCodeRef.current = barcode;
+    lastScannedTimeRef.current = now;
+
+    if (currentDurationSec === 0) {
+      isManualPausedRef.current = true;
+      setIsManualPaused(true);
+    }
+
+    // Audio & Haptic confirmation (single clean feedback)
+    playBeep('scan');
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      try {
+        navigator.vibrate(40);
+      } catch {
+        // ignore
+      }
+    }
 
     const matchedProduct = products.find(
       (p) => p.barcode === barcode || p.barcode.endsWith(barcode) || barcode.endsWith(p.barcode)
@@ -90,7 +191,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
       ...prev.slice(0, 4),
     ]);
 
-    // Send callback
+    // Send callback to POS system
     onBarcodeScanned(barcode);
 
     // If mode is 'product' (assigning to new product form) or not continuous, close automatically
@@ -101,7 +202,33 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
     }
   };
 
-  // Start Camera
+  // Resume / Force Scan for Same Code Immediately (e.g. adding 2nd unit of same item)
+  const handleForceScanSameCode = () => {
+    if (!scannedResult) return;
+    lastScannedTimeRef.current = Date.now();
+    isManualPausedRef.current = false;
+    setIsManualPaused(false);
+    playBeep('scan');
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      try {
+        navigator.vibrate(40);
+      } catch {
+        // ignore
+      }
+    }
+    onBarcodeScanned(scannedResult.barcode);
+  };
+
+  // Reset Cooldown so user can re-scan immediately without waiting
+  const handleResetCooldown = () => {
+    lastScannedCodeRef.current = '';
+    lastScannedTimeRef.current = 0;
+    isManualPausedRef.current = false;
+    setIsManualPaused(false);
+    setCooldownRemaining(null);
+  };
+
+  // Start Camera with optimized framerate
   const startCamera = async () => {
     setCameraError(null);
     try {
@@ -131,10 +258,11 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
       });
       scannerRef.current = html5QrCode;
 
+      // 10 FPS reduces mobile CPU heating and battery consumption by ~33% while detecting in <100ms
       await html5QrCode.start(
         { facingMode: cameraFacing },
         {
-          fps: 15,
+          fps: 10,
           qrbox: { width: 280, height: 160 },
           aspectRatio: 1.333,
         },
@@ -210,6 +338,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
       tempScanner.clear();
 
       if (decodedText) {
+        handleResetCooldown();
         handleDetectedCode(decodedText);
       } else {
         setFileError('No se pudo detectar un código de barras nítido en la imagen. Intenta con mejor iluminación o enfoque.');
@@ -227,6 +356,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
 
   useEffect(() => {
     if (isOpen && activeTab === 'camera') {
+      handleResetCooldown();
       const timer = setTimeout(() => {
         startCamera();
       }, 250);
@@ -327,19 +457,103 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
               <div className="relative rounded-none overflow-hidden bg-slate-950 border-2 border-[#214C6A] shadow-inner flex flex-col items-center justify-center min-h-[260px]">
                 <div id={readerElementId} className="w-full h-full min-h-[260px]" />
 
-                {/* Laser Overlay Graphic */}
+                {/* Laser Overlay Graphic / Cooldown Active State */}
                 {isCameraActive && (
-                  <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                    <div className="w-[80%] max-w-[280px] h-36 border-2 border-[#EB9D52] rounded-none relative overflow-hidden shadow-2xl">
-                      {/* Scanning Red Laser Line */}
-                      <div className="absolute left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-[#ff3b30] to-transparent shadow-[0_0_8px_#ff3b30] animate-bounce duration-1000" />
-                      
+                  <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center p-3">
+                    {/* Viewport Frame */}
+                    <div
+                      className={`w-[84%] max-w-[300px] h-36 rounded-none relative overflow-hidden transition-all duration-300 ${
+                        cooldownRemaining
+                          ? 'border-2 border-emerald-400 bg-emerald-950/25 shadow-[0_0_20px_rgba(52,211,153,0.35)]'
+                          : 'border-2 border-[#EB9D52] shadow-2xl'
+                      }`}
+                    >
+                      {/* Scanning Red Laser Line (Only when NOT in cooldown) */}
+                      {!cooldownRemaining && !isManualPaused && (
+                        <div className="absolute left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-[#ff3b30] to-transparent shadow-[0_0_8px_#ff3b30] animate-bounce duration-1000" />
+                      )}
+
                       {/* Corners */}
-                      <div className="absolute top-1 left-1 w-3 h-3 border-t-2 border-l-2 border-[#FFF9F0]" />
-                      <div className="absolute top-1 right-1 w-3 h-3 border-t-2 border-r-2 border-[#FFF9F0]" />
-                      <div className="absolute bottom-1 left-1 w-3 h-3 border-b-2 border-l-2 border-[#FFF9F0]" />
-                      <div className="absolute bottom-1 right-1 w-3 h-3 border-b-2 border-r-2 border-[#FFF9F0]" />
+                      <div
+                        className={`absolute top-1 left-1 w-3 h-3 border-t-2 border-l-2 ${
+                          cooldownRemaining ? 'border-emerald-300' : 'border-[#FFF9F0]'
+                        }`}
+                      />
+                      <div
+                        className={`absolute top-1 right-1 w-3 h-3 border-t-2 border-r-2 ${
+                          cooldownRemaining ? 'border-emerald-300' : 'border-[#FFF9F0]'
+                        }`}
+                      />
+                      <div
+                        className={`absolute bottom-1 left-1 w-3 h-3 border-b-2 border-l-2 ${
+                          cooldownRemaining ? 'border-emerald-300' : 'border-[#FFF9F0]'
+                        }`}
+                      />
+                      <div
+                        className={`absolute bottom-1 right-1 w-3 h-3 border-b-2 border-r-2 ${
+                          cooldownRemaining ? 'border-emerald-300' : 'border-[#FFF9F0]'
+                        }`}
+                      />
+
+                      {/* Cooldown Overlay Feedback */}
+                      {cooldownRemaining && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center p-2 text-center text-white select-none">
+                          <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-600/90 text-white text-[11px] font-bold shadow-md border border-emerald-300/40">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-100" />
+                            <span>Código registrado</span>
+                          </div>
+                          <span className="font-mono text-xs font-extrabold text-emerald-200 mt-1 truncate max-w-[200px]">
+                            {cooldownRemaining.code}
+                          </span>
+
+                          {cooldownDuration > 0 ? (
+                            <div className="w-full max-w-[180px] mt-2 space-y-1">
+                              <div className="w-full h-1.5 bg-white/20 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-emerald-400 transition-all duration-100 ease-linear"
+                                  style={{ width: `${cooldownRemaining.percent}%` }}
+                                />
+                              </div>
+                              <span className="text-[10px] text-emerald-300 font-semibold block">
+                                Enfriamiento activo ({cooldownRemaining.seconds}s)
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="mt-1.5">
+                              <span className="text-[10px] text-amber-200 font-bold bg-black/40 px-2 py-0.5 rounded">
+                                Pausado (Modo 1 a 1)
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
+
+                    {/* Interactive quick action buttons during cooldown */}
+                    {cooldownRemaining && (
+                      <div className="pointer-events-auto mt-2 flex items-center gap-2 z-10">
+                        {mode === 'sale' && (
+                          <button
+                            type="button"
+                            onClick={handleForceScanSameCode}
+                            className="px-2.5 py-1 bg-[#EB9D52] hover:bg-[#d8873d] text-[#1b2631] font-bold text-[11px] shadow-md border border-white/40 flex items-center gap-1 active:scale-95 transition-all cursor-pointer"
+                            title="Agregar otra unidad del mismo producto a la cuenta"
+                          >
+                            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                            <span>+1 Otra unidad</span>
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={handleResetCooldown}
+                          className="px-2.5 py-1 bg-white/20 hover:bg-white/30 text-white font-semibold text-[11px] backdrop-blur-xs border border-white/30 flex items-center gap-1 active:scale-95 transition-all cursor-pointer"
+                          title="Desbloquear la cámara de inmediato para leer sin esperar"
+                        >
+                          <RefreshCw className="w-3 h-3" />
+                          <span>Escanear ya</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -366,23 +580,63 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
                 )}
               </div>
 
-              {/* Instructions Pill */}
-              <div className="flex items-center justify-between text-xs text-[#56291D] px-1">
-                <span className="flex items-center gap-1.5 font-medium">
-                  <Sparkles className="w-3.5 h-3.5 text-[#BC6343]" />
-                  Apunta el código de barras al centro del recuadro
-                </span>
-                {mode === 'sale' && (
-                  <label className="flex items-center gap-1.5 text-[11px] font-bold text-[#214C6A] cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={continuousMode}
-                      onChange={(e) => setContinuousMode(e.target.checked)}
-                      className="rounded-none text-[#214C6A] focus:ring-[#214C6A] cursor-pointer"
-                    />
-                    <span>Escaneo continuo</span>
-                  </label>
-                )}
+              {/* Anti-duplicate Cooldown Configuration & Instructions */}
+              <div className="bg-[#F6E1C6]/50 border border-[#214C6A]/20 p-2.5 space-y-2 text-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 font-bold text-[#214C6A]">
+                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                    <span>Filtro Anti-Duplicados (Enfriamiento):</span>
+                  </div>
+                  <div className="flex items-center gap-1 bg-[#FFF9F0] p-0.5 border border-[#214C6A]/20">
+                    {[
+                      { label: '1.5s', val: 1.5, tip: 'Rápido' },
+                      { label: '2.5s ★', val: 2.5, tip: 'Recomendado para evitar lecturas dobles' },
+                      { label: '4.0s', val: 4.0, tip: 'Pausa prolongada' },
+                      { label: 'Manual', val: 0, tip: 'Pausa tras cada captura hasta confirmar' },
+                    ].map((opt) => (
+                      <button
+                        key={opt.label}
+                        type="button"
+                        onClick={() => {
+                          setCooldownDuration(opt.val);
+                          handleResetCooldown();
+                        }}
+                        className={`px-2 py-1 text-[11px] font-bold transition-colors cursor-pointer ${
+                          cooldownDuration === opt.val
+                            ? 'bg-[#214C6A] text-white shadow-xs'
+                            : 'text-[#63665B] hover:text-[#222E3A] hover:bg-[#F6E1C6]/60'
+                        }`}
+                        title={opt.tip}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-[11px] text-[#56291D] pt-0.5 border-t border-[#214C6A]/10">
+                  <span className="flex items-center gap-1">
+                    <Sparkles className="w-3.5 h-3.5 text-[#BC6343]" />
+                    {isManualPaused ? (
+                      <span className="font-bold text-amber-700">Lectura en pausa. Pulsa el botón para leer el siguiente artículo.</span>
+                    ) : cooldownRemaining ? (
+                      <span>Mantén enfocado; la cámara ignorará lecturas repetidas del mismo código.</span>
+                    ) : (
+                      <span>Apunta el código de barras al centro del recuadro.</span>
+                    )}
+                  </span>
+                  {mode === 'sale' && (
+                    <label className="flex items-center gap-1.5 font-bold text-[#214C6A] cursor-pointer shrink-0">
+                      <input
+                        type="checkbox"
+                        checked={continuousMode}
+                        onChange={(e) => setContinuousMode(e.target.checked)}
+                        className="rounded-none text-[#214C6A] focus:ring-[#214C6A] cursor-pointer"
+                      />
+                      <span>Continuo</span>
+                    </label>
+                  )}
+                </div>
               </div>
             </div>
           ) : (
@@ -475,11 +729,31 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
                   </div>
 
                   {mode === 'sale' && (
-                    <div className="text-right shrink-0">
-                      <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-none bg-emerald-700 text-white text-xs font-black shadow-xs border border-emerald-500 animate-pulse">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-300" />
-                        <span>¡Agregado a Factura!</span>
+                    <div className="flex flex-col items-end gap-1.5 shrink-0">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-none bg-emerald-700 text-white text-[11px] font-black shadow-xs border border-emerald-500 animate-pulse">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />
+                        <span>¡Agregado!</span>
                       </span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={handleForceScanSameCode}
+                          className="px-2 py-0.5 rounded-none bg-[#EB9D52] hover:bg-[#d8873d] text-[#1b2631] font-extrabold text-[10px] flex items-center gap-0.5 border border-[#214C6A]/30 shadow-2xs cursor-pointer active:scale-95 transition-all"
+                          title="Sumar otra unidad de este mismo producto a la cuenta"
+                        >
+                          <Plus className="w-3 h-3 stroke-[2.5]" />
+                          <span>+1 Otra</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleResetCooldown}
+                          className="px-2 py-0.5 rounded-none bg-[#FFF9F0] hover:bg-[#F6E1C6] text-[#214C6A] font-bold text-[10px] flex items-center gap-0.5 border border-[#214C6A]/30 cursor-pointer"
+                          title="Reiniciar enfriamiento de este código"
+                        >
+                          <RefreshCw className="w-3 h-3" />
+                          <span>Releer</span>
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>

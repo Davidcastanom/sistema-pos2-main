@@ -232,7 +232,7 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({
                   onClick={() => setShowAddForm(false)}
                   className="text-xs text-[#63665B] hover:text-[#e74c3c] font-bold"
                 >
-                  ✕ Cancelar
+                  Cancelar
                 </button>
               </div>
 
@@ -349,7 +349,7 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({
                   onClick={() => setPayingCustomer(null)}
                   className="text-xs text-emerald-800 font-bold"
                 >
-                  ✕ Cancelar
+                  Cancelar
                 </button>
               </div>
 
@@ -472,8 +472,8 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({
           </div>
 
           {/* Customers Table / Grid */}
-          <div className="border border-[#214C6A]/20 bg-white overflow-hidden shadow-2xs">
-            <table className="w-full text-left text-xs border-collapse">
+          <div className="border border-[#214C6A]/20 bg-white overflow-x-auto shadow-2xs">
+            <table className="w-full text-left text-xs border-collapse min-w-[620px]">
               <thead>
                 <tr className="bg-[#214C6A] text-[#FFF9F0] text-[11px] font-bold uppercase tracking-wider">
                   <th className="p-2.5">Cliente</th>

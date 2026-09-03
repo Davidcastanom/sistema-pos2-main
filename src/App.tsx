@@ -281,6 +281,7 @@ export default function App() {
   const [activeTransaction, setActiveTransaction] = useState<SaleTransaction | null>(null);
 
   // Professional Module Modals
+  const [isMobileCartOpen, setIsMobileCartOpen] = useState<boolean>(false);
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState<boolean>(false);
   const [isCashShiftModalOpen, setIsCashShiftModalOpen] = useState<boolean>(false);
   const [isInventoryModalOpen, setIsInventoryModalOpen] = useState<boolean>(false);
@@ -656,10 +657,22 @@ export default function App() {
     showToast('Cuenta de cobro vaciada', 'info');
   };
 
-  // Barcode scanner actions
-  const handleBarcodeScan = (scannedCode: string) => {
+  // Barcode scanner actions with anti-bounce defense
+  const lastHandledBarcodeRef = useRef<{ code: string; time: number }>({ code: '', time: 0 });
+
+  const handleBarcodeScan = (scannedCode: string, fromModal: boolean = false) => {
     const cleanCode = scannedCode.trim();
     if (!cleanCode) return;
+
+    const now = Date.now();
+    // Protección global contra ráfagas o dobles capturas accidentales (< 600ms para el mismo código)
+    if (
+      lastHandledBarcodeRef.current.code === cleanCode &&
+      now - lastHandledBarcodeRef.current.time < 600
+    ) {
+      return;
+    }
+    lastHandledBarcodeRef.current = { code: cleanCode, time: now };
 
     const found = products.find(
       (p) => p.barcode === cleanCode || p.barcode.endsWith(cleanCode) || cleanCode.endsWith(p.barcode)
@@ -667,7 +680,9 @@ export default function App() {
 
     if (found) {
       handleAddToCart(found);
-      playBeep();
+      if (!fromModal) {
+        playBeep();
+      }
       showToast(`Código ${cleanCode}: "${found.title}" agregado a la cuenta`, 'success');
     } else {
       showToast(`Código "${cleanCode}" no encontrado. Puedes registrarlo como nuevo producto.`, 'warning');
@@ -686,7 +701,7 @@ export default function App() {
 
   const handleBarcodeScannedFromModal = (barcode: string) => {
     if (scannerMode === 'sale') {
-      handleBarcodeScan(barcode);
+      handleBarcodeScan(barcode, true);
     } else {
       setScannedBarcodeForProduct(barcode);
       setIsScannerModalOpen(false);
@@ -742,6 +757,7 @@ export default function App() {
   const currentGlobalDiscount = (currentNetAfterProdDiscount * discount) / 100;
   const currentTotalDiscount = currentProductDiscounts + currentGlobalDiscount;
   const currentTotal = Math.max(0, currentSubtotal - currentTotalDiscount);
+  const currentTotalUnits = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
 
   const handleProceedToPayment = () => {
     if (cart.length === 0) return;
@@ -751,7 +767,8 @@ export default function App() {
   const handleCompleteSale = (
     method: PaymentMethodType,
     amountReceived?: number,
-    change?: number
+    change?: number,
+    customDetails?: string
   ) => {
     const grossSubtotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
     const prodDiscounts = cart.reduce((sum, item) => {
@@ -806,6 +823,7 @@ export default function App() {
       change,
       customerName: activeCustomerName,
       cashierName: currentShift?.cashierName || 'Don Esteban',
+      customDetails,
     };
 
     // 1. Deduct stock from inventory
@@ -1464,11 +1482,14 @@ export default function App() {
           favoriteIds={favoriteProductIds}
           onAddToCart={handleAddToCart}
           onToggleFavorite={handleToggleFavoriteProduct}
+          cartItemCount={currentTotalUnits}
+          cartTotal={currentTotal}
+          onOpenMobileCart={() => setIsMobileCartOpen(true)}
         />
       </div>
 
       {/* Main POS Workspace */}
-      <main className="relative z-10 flex-1 max-w-7xl w-full mx-auto p-3 sm:p-4 lg:p-5 flex flex-col lg:flex-row gap-4 items-start">
+      <main className="relative z-10 flex-1 max-w-7xl w-full mx-auto p-3 sm:p-4 lg:p-5 flex flex-col lg:flex-row gap-4 items-start pb-28 lg:pb-5">
         {/* Left Side: Favorites, Category Navigator & Product Catalog */}
         <section className="flex-1 w-full space-y-3.5 min-w-0">
           {/* Quick 1-Tap Favorites Bar */}
@@ -1510,8 +1531,8 @@ export default function App() {
           />
         </section>
 
-        {/* Right Side: Sticky POS Cart Drawer with Customer Selection */}
-        <div className="w-full lg:w-auto lg:sticky lg:top-20">
+        {/* Right Side: Sticky POS Cart Drawer with Customer Selection (Desktop) */}
+        <div className="hidden lg:block lg:sticky lg:top-20">
           <POSCartDrawer
             cart={cart}
             onUpdateQuantity={handleUpdateQuantity}
@@ -1532,6 +1553,86 @@ export default function App() {
           />
         </div>
       </main>
+
+      {/* Floating Sticky Mobile Cart Bar (< lg) */}
+      {cart.length > 0 && (
+        <div className="fixed bottom-0 inset-x-0 z-40 bg-[#163347]/95 backdrop-blur-md border-t border-[#EB9D52]/40 p-2.5 sm:p-3 shadow-[0_-8px_30px_rgba(0,0,0,0.35)] lg:hidden animate-slideUp">
+          <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-3">
+            <button
+              type="button"
+              onClick={() => setIsMobileCartOpen(true)}
+              className="flex items-center gap-2 text-left cursor-pointer group flex-1 min-w-0"
+            >
+              <div className="w-10 h-10 rounded-lg bg-[#EB9D52] flex items-center justify-center text-[#222E3A] font-bold shadow-md shrink-0">
+                <ShoppingBag className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-[11px] text-[#F6E1C6]/80 flex items-center gap-1.5 font-medium">
+                  <span>{currentTotalUnits} {currentTotalUnits === 1 ? 'artículo' : 'artículos'}</span>
+                  <span className="text-[#EB9D52]">• Ver cuenta</span>
+                </div>
+                <div className="text-base sm:text-lg font-black font-mono text-white leading-tight truncate">
+                  {formatCOP(currentTotal)}
+                </div>
+              </div>
+            </button>
+
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsMobileCartOpen(true)}
+                className="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white font-bold text-xs cursor-pointer transition-all border border-white/20 active:scale-95"
+              >
+                Cuenta
+              </button>
+              <button
+                type="button"
+                onClick={handleProceedToPayment}
+                className="px-4 py-2 rounded-lg bg-[#BC6343] hover:bg-[#964937] text-white font-extrabold text-xs sm:text-sm shadow-md cursor-pointer transition-all active:scale-95 flex items-center gap-1.5 border border-white/25"
+              >
+                <Zap className="w-4 h-4 text-[#EB9D52]" />
+                <span>Cobrar</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Cart Sheet / Modal (< lg) */}
+      {isMobileCartOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/75 backdrop-blur-md p-0 sm:p-4 lg:hidden animate-fadeIn">
+          <div className="w-full max-w-lg max-h-[92vh] sm:max-h-[85vh] h-full flex flex-col bg-white rounded-t-2xl sm:rounded-xl shadow-2xl overflow-hidden animate-slideUp">
+            <POSCartDrawer
+              cart={cart}
+              onUpdateQuantity={handleUpdateQuantity}
+              onRemoveItem={handleRemoveItem}
+              onClearCart={handleClearCart}
+              onProceedToPayment={() => {
+                setIsMobileCartOpen(false);
+                handleProceedToPayment();
+              }}
+              discount={discount}
+              onDiscountChange={setDiscount}
+              customerName={customerName}
+              onCustomerNameChange={setCustomerName}
+              customers={customers}
+              onOpenCustomerDirectory={() => {
+                setIsMobileCartOpen(false);
+                setIsCustomerModalOpen(true);
+              }}
+              parkedSales={parkedSales}
+              onParkCurrentSale={handleParkCurrentSale}
+              onRestoreParkedSale={handleRestoreParkedSale}
+              onDeleteParkedSale={handleDeleteParkedSale}
+              onOpenQuickAmount={() => {
+                setIsMobileCartOpen(false);
+                setIsQuickAmountModalOpen(true);
+              }}
+              onCloseMobileDrawer={() => setIsMobileCartOpen(false)}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Professional Modals */}
 

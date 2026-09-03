@@ -135,9 +135,10 @@ export const ManageQuickFavoritesModal: React.FC<ManageQuickFavoritesModalProps>
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#63665B] hover:text-[#222E3A] text-xs font-bold"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#63665B] hover:text-[#222E3A] p-0.5 cursor-pointer"
+                title="Borrar búsqueda"
               >
-                ✕
+                <X className="w-3.5 h-3.5" />
               </button>
             )}
           </div>

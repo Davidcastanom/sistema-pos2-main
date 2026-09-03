@@ -40,7 +40,8 @@ import {
   ShoppingBag,
   ExternalLink,
   Filter,
-  Zap
+  Zap,
+  Star
 } from 'lucide-react';
 
 interface SuppliersModalProps {
@@ -1185,8 +1186,8 @@ export const SuppliersModal: React.FC<SuppliersModalProps> = ({
                             onChange={(e) => setQuoteInStock(e.target.value === 'true')}
                             className="w-full p-1.5 bg-white border border-slate-300 text-xs focus:outline-none focus:border-[#214C6A]"
                           >
-                            <option value="true">✅ Con Stock Disponible</option>
-                            <option value="false">⚠️ Desabastecido / Agotado en proveedor</option>
+                            <option value="true">Con Stock Disponible</option>
+                            <option value="false">Desabastecido / Agotado en proveedor</option>
                           </select>
                         </div>
                       </div>
@@ -1247,7 +1248,7 @@ export const SuppliersModal: React.FC<SuppliersModalProps> = ({
                               title="Generar cotizaciones comparativas realistas de proveedores colombianos para este producto"
                             >
                               <Sparkles className="w-3.5 h-3.5" />
-                              <span>💡 Generar Cotizaciones Comparativas de Ejemplo</span>
+                              <span>Generar Cotizaciones Comparativas de Ejemplo</span>
                             </button>
                           )}
                         </div>
@@ -1278,8 +1279,9 @@ export const SuppliersModal: React.FC<SuppliersModalProps> = ({
                               {/* Badges */}
                               <div className="flex flex-wrap items-center gap-1.5 mb-2">
                                 {q.isPreferred && (
-                                  <span className="px-2 py-0.5 bg-[#BC6343] text-white text-[10px] font-bold">
-                                    ⭐ Proveedor Preferido
+                                  <span className="px-2 py-0.5 bg-[#BC6343] text-white text-[10px] font-bold flex items-center gap-1">
+                                    <Star className="w-3 h-3 fill-current" />
+                                    <span>Proveedor Preferido</span>
                                   </span>
                                 )}
                                 {isCheapest && (
@@ -1515,13 +1517,13 @@ export const SuppliersModal: React.FC<SuppliersModalProps> = ({
                             className="px-4 py-2 bg-[#EB9D52] hover:bg-[#d8893d] text-[#1b2631] text-xs font-black shadow-xs inline-flex items-center gap-1.5 cursor-pointer"
                           >
                             <Zap className="w-4 h-4 text-[#1b2631]" />
-                            <span>⚡ Cargar Automáticamente {lowStockProducts.length} Productos con Bajo Stock</span>
+                            <span>Cargar Automáticamente {lowStockProducts.length} Productos con Bajo Stock</span>
                           </button>
                         )}
                       </div>
                     ) : (
                       <div className="overflow-x-auto">
-                        <table className="w-full text-xs text-left">
+                        <table className="w-full text-xs text-left min-w-[580px]">
                           <thead className="bg-[#214C6A] text-white uppercase text-[10px]">
                             <tr>
                               <th className="p-2">Producto</th>
@@ -1689,8 +1691,9 @@ export const SuppliersModal: React.FC<SuppliersModalProps> = ({
                         </div>
 
                         {ord.receivedAt && (
-                          <div className="text-[11px] text-emerald-700 font-semibold">
-                            ✅ Ingresado al inventario el {new Date(ord.receivedAt).toLocaleDateString('es-CO')}
+                          <div className="text-[11px] text-emerald-700 font-semibold flex items-center gap-1">
+                            <Check className="w-3.5 h-3.5 shrink-0" />
+                            <span>Ingresado al inventario el {new Date(ord.receivedAt).toLocaleDateString('es-CO')}</span>
                           </div>
                         )}
                       </div>
