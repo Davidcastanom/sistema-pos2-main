@@ -343,10 +343,48 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
       {/* VIEW MODE 3: HIGH-DENSITY FAST TABLE LIST (Glassmorphic) */}
       {viewMode === 'list' && (
         <div className="glass-panel rounded-none border border-white/80 overflow-hidden shadow-md">
+          {/* Dedicated Header for High-Density List */}
+          {/* 1. Tablet & Desktop Header (grid-cols-12) */}
+          <div className="hidden md:grid grid-cols-12 gap-3 px-4 py-2.5 bg-[#214C6A] text-[#FFF9F0] text-xs font-bold border-b border-white/20 select-none shadow-xs">
+            <div className="col-span-5 flex items-center gap-1.5 uppercase tracking-wider text-[11px]">
+              <Package className="w-3.5 h-3.5 text-[#EB9D52]" />
+              <span>Producto & Referencia</span>
+            </div>
+            <div className="col-span-2 flex items-center gap-1.5 uppercase tracking-wider text-[11px]">
+              <Tag className="w-3.5 h-3.5 text-[#EB9D52]" />
+              <span>Categoría / IVA</span>
+            </div>
+            <div className="col-span-2 flex items-center gap-1.5 uppercase tracking-wider text-[11px]">
+              <AlertCircle className="w-3.5 h-3.5 text-[#EB9D52]" />
+              <span>Stock Disp.</span>
+            </div>
+            <div className="col-span-2 text-right uppercase tracking-wider text-[11px] pr-2">
+              <span>Precio Unitario</span>
+            </div>
+            <div className="col-span-1 text-center uppercase tracking-wider text-[11px]">
+              <span>Acción</span>
+            </div>
+          </div>
+
+          {/* 2. Mobile Header (< md) */}
+          <div className="flex md:hidden items-center justify-between px-3 py-2 bg-[#214C6A] text-[#FFF9F0] text-xs font-bold border-b border-white/20 select-none shadow-xs">
+            <div className="flex items-center gap-1.5 uppercase tracking-wider text-[11px]">
+              <Package className="w-3.5 h-3.5 text-[#EB9D52]" />
+              <span>Producto / Detalle</span>
+            </div>
+            <div className="flex items-center gap-1.5 uppercase tracking-wider text-[11px]">
+              <span>Stock</span>
+              <span className="text-white/40">•</span>
+              <span>Precio / Cobro</span>
+            </div>
+          </div>
+
+          {/* List Content */}
           <div className="divide-y divide-white/40">
             {products.map((product) => {
               const qtyInCart = getCartQuantity(product.id);
               const isOutOfStock = product.stock <= 0;
+              const isLowStock = product.stock > 0 && product.stock <= 5;
               const isFav = favoriteIds.includes(product.id);
               const ivaRate = product.ivaRate ?? 0;
               const hasDiscount = Boolean(product.discount && product.discount > 0);
@@ -357,122 +395,299 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
                   onClick={() => {
                     if (!isOutOfStock) onAddToCart(product);
                   }}
-                  className={`p-3 sm:px-4 flex items-center justify-between gap-3 hover:bg-white/50 transition-colors cursor-pointer select-none ${
+                  className={`hover:bg-white/50 transition-colors cursor-pointer select-none ${
                     qtyInCart > 0 ? 'bg-white/60' : 'bg-white/25'
                   }`}
                 >
-                  {/* Left: Edit + Star + Image + Title + Category + IVA + Discount */}
-                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                    {onEditProduct && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onEditProduct(product);
-                        }}
-                        className="p-1 rounded-none text-[#63665B]/70 hover:text-[#BC6343] hover:bg-white/60 transition-colors cursor-pointer shrink-0"
-                        title="Modificar producto, IVA y descuento"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
+                  {/* --- DESKTOP & TABLET LAYOUT (>= md: 12-column Table Grid) --- */}
+                  <div className="hidden md:grid grid-cols-12 items-center gap-3 px-4 py-2.5">
+                    {/* Col 1-5: Actions + Image + Title + Barcode */}
+                    <div className="col-span-5 flex items-center gap-2.5 min-w-0">
+                      {onEditProduct && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onEditProduct(product);
+                          }}
+                          className="p-1 rounded-none text-[#63665B]/70 hover:text-[#BC6343] hover:bg-white/60 transition-colors cursor-pointer shrink-0"
+                          title="Modificar producto, IVA y descuento"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
 
-                    {onToggleFavorite && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onToggleFavorite(product.id);
-                        }}
-                        className={`p-1 rounded-none transition-colors cursor-pointer shrink-0 ${
-                          isFav ? 'text-[#EB9D52]' : 'text-[#63665B]/60 hover:text-[#EB9D52]'
-                        }`}
-                      >
-                        <Star className={`w-4 h-4 ${isFav ? 'fill-[#EB9D52]' : ''}`} />
-                      </button>
-                    )}
+                      {onToggleFavorite && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onToggleFavorite(product.id);
+                          }}
+                          className={`p-1 rounded-none transition-colors cursor-pointer shrink-0 ${
+                            isFav ? 'text-[#EB9D52]' : 'text-[#63665B]/60 hover:text-[#EB9D52]'
+                          }`}
+                          title={isFav ? 'Quitar de favoritos' : 'Marcar como favorito'}
+                        >
+                          <Star className={`w-4 h-4 ${isFav ? 'fill-[#EB9D52]' : ''}`} />
+                        </button>
+                      )}
 
-                    <img
-                      src={normalizeImageUrl(product.imageUrl)}
-                      alt={product.title}
-                      referrerPolicy="no-referrer"
-                      className="w-10 h-10 rounded-none object-cover border border-white/60 shrink-0 shadow-2xs bg-white/40 backdrop-blur-xs"
-                    />
+                      <img
+                        src={normalizeImageUrl(product.imageUrl)}
+                        alt={product.title}
+                        referrerPolicy="no-referrer"
+                        className="w-10 h-10 rounded-none object-cover border border-white/60 shrink-0 shadow-2xs bg-white/40 backdrop-blur-xs"
+                      />
 
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap">
+                      <div className="min-w-0 flex-1">
                         <h4 className="text-xs sm:text-sm font-bold text-[#222E3A] truncate font-title">
                           {product.title}
                         </h4>
-                        <span className="text-[9px] font-bold text-[#56291D] bg-[#EB9D52]/25 border border-[#EB9D52]/40 backdrop-blur-xs px-1.5 py-0.5 rounded-none shrink-0 hidden sm:inline-block shadow-2xs font-secondary">
-                          {product.category}
-                        </span>
-                        <span className={`text-[8px] font-bold px-1 py-0.5 rounded-none border backdrop-blur-xs font-secondary ${
-                          ivaRate > 0 ? 'bg-[#214C6A]/15 text-[#214C6A] border-[#214C6A]/25' : 'bg-emerald-500/15 text-emerald-900 border-emerald-400/30'
-                        }`}>
-                          {ivaRate > 0 ? `IVA ${ivaRate}%` : '0% Exento'}
-                        </span>
-                        {hasDiscount && (
-                          <span className="text-[8px] font-black px-1 py-0.5 rounded-none bg-rose-600 text-white shadow-2xs font-secondary">
-                            -{product.discount}%
-                          </span>
-                        )}
+                        <div className="flex items-center gap-1.5 text-[10px] text-[#63665B] truncate font-secondary">
+                          {product.barcode && (
+                            <span className="font-mono bg-white/50 px-1 py-0.2 border border-black/5">
+                              Ref: {product.barcode}
+                            </span>
+                          )}
+                          <span>• {product.unit || 'uds'}</span>
+                        </div>
                       </div>
-                      <p className="text-[11px] text-[#63665B] truncate font-secondary">
-                        Stock: {product.stock} {product.unit || 'uds'} {product.barcode && `• Ref: ${product.barcode}`}
-                      </p>
+                    </div>
+
+                    {/* Col 6-7: Category + IVA + Discount */}
+                    <div className="col-span-2 flex flex-wrap items-center gap-1 min-w-0">
+                      <span className="text-[9px] font-bold text-[#56291D] bg-[#EB9D52]/25 border border-[#EB9D52]/40 backdrop-blur-xs px-1.5 py-0.5 rounded-none shrink-0 shadow-2xs font-secondary truncate max-w-full">
+                        {product.category}
+                      </span>
+                      <span className={`text-[8px] font-bold px-1 py-0.5 rounded-none border backdrop-blur-xs font-secondary shrink-0 ${
+                        ivaRate > 0 ? 'bg-[#214C6A]/15 text-[#214C6A] border-[#214C6A]/25' : 'bg-emerald-500/15 text-emerald-900 border-emerald-400/30'
+                      }`}>
+                        {ivaRate > 0 ? `IVA ${ivaRate}%` : '0% Exento'}
+                      </span>
+                      {hasDiscount && (
+                        <span className="text-[8px] font-black px-1 py-0.5 rounded-none bg-rose-600 text-white shadow-2xs font-secondary shrink-0">
+                          -{product.discount}%
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Col 8-9: Stock Status */}
+                    <div className="col-span-2 min-w-0">
+                      <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-none border ${
+                        isOutOfStock
+                          ? 'bg-rose-100 text-rose-800 border-rose-300'
+                          : isLowStock
+                          ? 'bg-amber-100 text-amber-800 border-amber-300'
+                          : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                      }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${
+                          isOutOfStock ? 'bg-rose-600' : isLowStock ? 'bg-amber-600' : 'bg-emerald-600'
+                        }`} />
+                        <span>
+                          {isOutOfStock ? 'Agotado' : `${product.stock} ${product.unit || 'uds'}`}
+                        </span>
+                      </span>
+                    </div>
+
+                    {/* Col 10-11: Price */}
+                    <div className="col-span-2 text-right pr-2 min-w-0">
+                      <span className="text-sm font-black text-[#BC6343] font-secondary block truncate">
+                        {formatCOP(product.price)}
+                      </span>
+                    </div>
+
+                    {/* Col 12: Action / Stepper */}
+                    <div className="col-span-1 flex items-center justify-center">
+                      {qtyInCart > 0 ? (
+                        <div 
+                          className="flex items-center gap-1 bg-[#214C6A] border border-white/30 rounded-none p-0.5 text-white shadow-xs"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDecrementCart(product.id);
+                            }}
+                            className="w-5 h-5 rounded-none bg-[#1a3d55] hover:bg-[#0f2433] active:scale-95 text-[#FFF9F0] flex items-center justify-center font-bold text-xs cursor-pointer"
+                          >
+                            <Minus className="w-3 h-3" />
+                          </button>
+                          <span className="w-5 text-center text-xs font-black text-[#EB9D52]">
+                            {qtyInCart}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onIncrementCart(product.id);
+                            }}
+                            disabled={qtyInCart >= product.stock}
+                            className="w-5 h-5 rounded-none bg-[#4caf50] hover:bg-[#388e3c] disabled:opacity-40 active:scale-95 text-white flex items-center justify-center font-bold text-xs cursor-pointer"
+                          >
+                            <Plus className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={isOutOfStock}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onAddToCart(product);
+                          }}
+                          className="px-2.5 py-1 rounded-none bg-[#214C6A] hover:bg-[#1a3d55] disabled:bg-[#63665B]/30 disabled:opacity-40 text-[#FFF9F0] text-xs font-bold transition-all cursor-pointer shadow-xs border border-white/20 whitespace-nowrap"
+                        >
+                          + Agregar
+                        </button>
+                      )}
                     </div>
                   </div>
 
-                  {/* Right: Price & Stepper */}
-                  <div className="flex items-center gap-3 shrink-0">
-                    <span className="text-sm sm:text-base font-black text-[#BC6343] font-secondary min-w-[80px] text-right">
-                      {formatCOP(product.price)}
-                    </span>
+                  {/* --- MOBILE RESPONSIVE LAYOUT (< md: Optimized Clean Cards without Compression) --- */}
+                  <div className="flex md:hidden flex-col gap-2 p-3">
+                    {/* Top Row: Thumbnail + Info (Left) and Price + Stock (Right) */}
+                    <div className="flex items-start justify-between gap-2.5">
+                      {/* Left: Thumbnail & Star/Edit & Title */}
+                      <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                        {/* Thumbnail with overlay Favorite Star */}
+                        <div className="relative shrink-0">
+                          <img
+                            src={normalizeImageUrl(product.imageUrl)}
+                            alt={product.title}
+                            referrerPolicy="no-referrer"
+                            className="w-12 h-12 rounded-none object-cover border border-white/60 shadow-2xs bg-white/40 backdrop-blur-xs"
+                          />
+                          {onToggleFavorite && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onToggleFavorite(product.id);
+                              }}
+                              className={`absolute -top-1 -left-1 p-0.5 bg-white/95 rounded-none shadow-2xs ${
+                                isFav ? 'text-[#EB9D52]' : 'text-[#63665B]/60'
+                              }`}
+                              title={isFav ? 'Quitar de favoritos' : 'Marcar favorito'}
+                            >
+                              <Star className={`w-3 h-3 ${isFav ? 'fill-[#EB9D52]' : ''}`} />
+                            </button>
+                          )}
+                        </div>
 
-                    {qtyInCart > 0 ? (
-                      <div 
-                        className="flex items-center gap-1 bg-[#214C6A] border border-white/30 rounded-none p-0.5 text-white shadow-xs"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onDecrementCart(product.id);
-                          }}
-                          className="w-5 h-5 rounded-none bg-[#1a3d55] hover:bg-[#0f2433] active:scale-95 text-[#FFF9F0] flex items-center justify-center font-bold text-xs cursor-pointer"
-                        >
-                          <Minus className="w-3 h-3" />
-                        </button>
-                        <span className="w-5 text-center text-xs font-black text-[#EB9D52]">
-                          {qtyInCart}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onIncrementCart(product.id);
-                          }}
-                          disabled={qtyInCart >= product.stock}
-                          className="w-5 h-5 rounded-none bg-[#4caf50] hover:bg-[#388e3c] disabled:opacity-40 active:scale-95 text-white flex items-center justify-center font-bold text-xs cursor-pointer"
-                        >
-                          <Plus className="w-3 h-3" />
-                        </button>
+                        {/* Title, Category & Details */}
+                        <div className="min-w-0 flex-1">
+                          <h4 className="text-xs sm:text-sm font-bold text-[#222E3A] leading-tight font-title line-clamp-2">
+                            {product.title}
+                          </h4>
+                          <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                            <span className="text-[9px] font-bold text-[#56291D] bg-[#EB9D52]/25 border border-[#EB9D52]/40 px-1.5 py-0.2 rounded-none shrink-0 font-secondary">
+                              {product.category}
+                            </span>
+                            <span className={`text-[8px] font-bold px-1 py-0.2 rounded-none border shrink-0 font-secondary ${
+                              ivaRate > 0 ? 'bg-[#214C6A]/15 text-[#214C6A] border-[#214C6A]/25' : 'bg-emerald-500/15 text-emerald-900 border-emerald-400/30'
+                            }`}>
+                              {ivaRate > 0 ? `IVA ${ivaRate}%` : '0% Exento'}
+                            </span>
+                            {hasDiscount && (
+                              <span className="text-[8px] font-black px-1 py-0.2 rounded-none bg-rose-600 text-white shadow-2xs shrink-0">
+                                -{product.discount}%
+                              </span>
+                            )}
+                          </div>
+                          {product.barcode && (
+                            <p className="text-[10px] text-[#63665B] font-mono mt-0.5 truncate">
+                              Ref: {product.barcode}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                    ) : (
-                      <button
-                        type="button"
-                        disabled={isOutOfStock}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onAddToCart(product);
-                        }}
-                        className="px-3 py-1 rounded-none bg-[#214C6A] hover:bg-[#1a3d55] disabled:bg-[#63665B]/30 disabled:opacity-40 text-[#FFF9F0] text-xs font-bold transition-all cursor-pointer shadow-xs border border-white/20"
-                      >
-                        + Agregar
-                      </button>
-                    )}
+
+                      {/* Right: Price & Stock Badge */}
+                      <div className="text-right shrink-0">
+                        <span className="text-sm font-black text-[#BC6343] font-secondary block">
+                          {formatCOP(product.price)}
+                        </span>
+                        <span className={`inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-none mt-1 border ${
+                          isOutOfStock
+                            ? 'bg-rose-100 text-rose-800 border-rose-300'
+                            : isLowStock
+                            ? 'bg-amber-100 text-amber-800 border-amber-300'
+                            : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${
+                            isOutOfStock ? 'bg-rose-600' : isLowStock ? 'bg-amber-600' : 'bg-emerald-600'
+                          }`} />
+                          <span>
+                            {isOutOfStock ? 'Agotado' : `${product.stock} ${product.unit || 'uds'}`}
+                          </span>
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Bottom Row: Quick Edit & Touch-Friendly Add/Stepper */}
+                    <div className="flex items-center justify-between pt-1.5 border-t border-white/40 text-xs">
+                      {onEditProduct ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onEditProduct(product);
+                          }}
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#63665B] hover:text-[#BC6343] p-1 cursor-pointer"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                          <span>Editar datos</span>
+                        </button>
+                      ) : <div />}
+
+                      {/* Stepper or Add button with generous touch target */}
+                      {qtyInCart > 0 ? (
+                        <div 
+                          className="flex items-center gap-2 bg-[#214C6A] border border-white/30 rounded-none p-1 text-white shadow-xs"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDecrementCart(product.id);
+                            }}
+                            className="w-7 h-7 rounded-none bg-[#1a3d55] hover:bg-[#0f2433] active:scale-95 text-[#FFF9F0] flex items-center justify-center font-bold text-sm cursor-pointer"
+                          >
+                            <Minus className="w-3.5 h-3.5" />
+                          </button>
+                          <span className="min-w-[24px] text-center text-xs font-black text-[#EB9D52]">
+                            {qtyInCart}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onIncrementCart(product.id);
+                            }}
+                            disabled={qtyInCart >= product.stock}
+                            className="w-7 h-7 rounded-none bg-[#4caf50] hover:bg-[#388e3c] disabled:opacity-40 active:scale-95 text-white flex items-center justify-center font-bold text-sm cursor-pointer"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={isOutOfStock}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onAddToCart(product);
+                          }}
+                          className="px-3.5 py-1.5 rounded-none bg-[#214C6A] hover:bg-[#1a3d55] disabled:bg-[#63665B]/30 disabled:opacity-40 text-[#FFF9F0] text-xs font-bold transition-all cursor-pointer shadow-xs border border-white/20 active:scale-95 flex items-center gap-1.5"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>+ Agregar a cuenta</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               );

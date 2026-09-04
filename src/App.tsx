@@ -13,10 +13,12 @@ import {
   FixedMonthlyCosts,
   Supplier,
   ProductSupplierQuote,
-  SupplierOrder
+  SupplierOrder,
+  StoreInfo
 } from './types';
 import { INITIAL_PRODUCTS, INITIAL_CUSTOMERS, CATEGORIES, INITIAL_SUPPLIERS } from './data/initialData';
 import { DEFAULT_FIXED_COSTS } from './lib/businessLogic';
+import { getSavedStoreInfo } from './lib/pdfGenerator';
 import { 
   POSHeader, 
   CategoryNav, 
@@ -38,7 +40,8 @@ import {
   ReportsModal,
   ManagerDashboardModal,
   LiquidGlassGuideModal,
-  SuppliersModal
+  SuppliersModal,
+  StoreInfoModal
 } from './components';
 import { formatCOP } from './lib/utils';
 import { 
@@ -291,6 +294,10 @@ export default function App() {
   const [isSuppliersModalOpen, setIsSuppliersModalOpen] = useState<boolean>(false);
   const [supplierModalInitialTab, setSupplierModalInitialTab] = useState<'directory' | 'compare' | 'reorder' | 'orders'>('directory');
   const [supplierModalInitialProductId, setSupplierModalInitialProductId] = useState<string | number | undefined>(undefined);
+  const [isStoreInfoModalOpen, setIsStoreInfoModalOpen] = useState<boolean>(false);
+
+  // Centralized Store Information state with persistence
+  const [storeInfo, setStoreInfo] = useState<StoreInfo>(() => getSavedStoreInfo());
 
   // Suppliers state with persistence
   const [suppliers, setSuppliers] = useState<Supplier[]>(() => {
@@ -349,6 +356,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('pos_fixed_costs_v1', JSON.stringify(fixedCosts));
   }, [fixedCosts]);
+
+  useEffect(() => {
+    localStorage.setItem('pos_store_info_v1', JSON.stringify(storeInfo));
+  }, [storeInfo]);
 
   // Save changes to localStorage
   useEffect(() => {
@@ -1405,6 +1416,12 @@ export default function App() {
     showToast(`Inventario actualizado para ${updates.length} productos`, 'success');
   };
 
+  const handleSaveStoreInfo = (newInfo: StoreInfo) => {
+    setStoreInfo(newInfo);
+    localStorage.setItem('pos_store_info_v1', JSON.stringify(newInfo));
+    showToast(`Datos del negocio guardados: ${newInfo.name}`, 'success');
+  };
+
   const handleAddQuickAmountProduct = (quickProduct: ProductItem) => {
     handleAddToCart(quickProduct);
     showToast(`"${quickProduct.title}" agregado a la cuenta por ${formatCOP(quickProduct.price)}`);
@@ -1470,6 +1487,8 @@ export default function App() {
           }}
           onOpenReports={() => setIsReportsModalOpen(true)}
           onOpenManagerDashboard={() => setIsManagerDashboardOpen(true)}
+          storeInfo={storeInfo}
+          onOpenStoreInfo={() => setIsStoreInfoModalOpen(true)}
           showCategoryGallery={showCategoryGallery}
           onToggleCategoryGallery={() => setShowCategoryGallery(!showCategoryGallery)}
           quickSearchChips={quickSearchChips}
@@ -1646,6 +1665,8 @@ export default function App() {
         onDeleteCustomer={handleDeleteCustomer}
         onRecordDebtPayment={handleRecordDebtPayment}
         onSelectCustomerForSale={handleSelectCustomerForCart}
+        storeInfo={storeInfo}
+        cashierName={currentShift?.cashierName || storeInfo.defaultCashierName || 'Don Esteban'}
       />
 
       {/* Cash Shift & Drawer Management Modal */}
@@ -1702,6 +1723,7 @@ export default function App() {
         suppliers={suppliers}
         products={products}
         supplierOrders={supplierOrders}
+        storeInfo={storeInfo}
         onAddSupplier={handleAddSupplier}
         onUpdateSupplier={handleUpdateSupplier}
         onDeleteSupplier={handleDeleteSupplier}
@@ -1777,6 +1799,8 @@ export default function App() {
         isOpen={isReceiptModalOpen}
         onClose={() => setIsReceiptModalOpen(false)}
         transaction={activeTransaction}
+        storeInfo={storeInfo}
+        onOpenStoreInfo={() => setIsStoreInfoModalOpen(true)}
         onNewSale={() => {
           setIsReceiptModalOpen(false);
           setActiveTransaction(null);
@@ -1861,6 +1885,14 @@ export default function App() {
       <LiquidGlassGuideModal
         isOpen={isLiquidGlassGuideOpen}
         onClose={() => setIsLiquidGlassGuideOpen(false)}
+      />
+
+      {/* Store Information & Billing Setup Modal */}
+      <StoreInfoModal
+        isOpen={isStoreInfoModalOpen}
+        onClose={() => setIsStoreInfoModalOpen(false)}
+        storeInfo={storeInfo}
+        onSaveStoreInfo={handleSaveStoreInfo}
       />
     </div>
   );

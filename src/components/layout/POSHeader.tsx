@@ -31,7 +31,8 @@ import {
   Menu
 } from 'lucide-react';
 import { formatCOP, playBeep } from '@/lib/utils';
-import { SaleTransaction, CashShift, ProductItem } from '@/types';
+import { SaleTransaction, CashShift, ProductItem, StoreInfo } from '@/types';
+import { getSavedStoreInfo } from '@/lib/pdfGenerator';
 
 interface POSHeaderProps {
   searchQuery: string;
@@ -50,6 +51,8 @@ interface POSHeaderProps {
   onOpenSuppliers?: () => void;
   onOpenReports: () => void;
   onOpenManagerDashboard?: () => void;
+  storeInfo?: StoreInfo;
+  onOpenStoreInfo?: () => void;
   showCategoryGallery: boolean;
   onToggleCategoryGallery: () => void;
   quickSearchChips: string[];
@@ -84,6 +87,8 @@ export const POSHeader: React.FC<POSHeaderProps> = ({
   onOpenSuppliers,
   onOpenReports,
   onOpenManagerDashboard,
+  storeInfo,
+  onOpenStoreInfo,
   showCategoryGallery,
   onToggleCategoryGallery,
   quickSearchChips,
@@ -100,6 +105,7 @@ export const POSHeader: React.FC<POSHeaderProps> = ({
   cartTotal = 0,
   onOpenMobileCart,
 }) => {
+  const activeStore = storeInfo || getSavedStoreInfo();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
   const [currentTime, setCurrentTime] = useState<string>('');
   const [barcodeInput, setBarcodeInput] = useState<string>('');
@@ -415,13 +421,18 @@ export const POSHeader: React.FC<POSHeaderProps> = ({
       <div className="max-w-7xl mx-auto modern-menu-bar">
         {/* Left: Brand Logo with Dot, Circular Icon and Cashier Status */}
         <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0 min-w-0">
-          <div className="modern-logo cursor-default" title="Tienda Mixta La Esquinita">
+          <button 
+            type="button"
+            onClick={onOpenStoreInfo}
+            className={`modern-logo text-left transition-all p-0.5 -m-0.5 rounded group ${onOpenStoreInfo ? 'cursor-pointer hover:bg-white/10' : 'cursor-default'}`} 
+            title={`${activeStore.name} • NIT: ${activeStore.nit}${onOpenStoreInfo ? ' - Clic para editar datos de la tienda' : ''}`}
+          >
             {/* Circular Official Brand Avatar */}
-            <div className="relative w-8 h-8 sm:w-10 sm:h-10 rounded-full p-0.5 bg-gradient-to-tr from-[#EB9D52] via-[#BC6343] to-[#FFF9F0] shrink-0 shadow-md flex items-center justify-center transition-transform hover:scale-105">
+            <div className="relative w-8 h-8 sm:w-10 sm:h-10 rounded-full p-0.5 bg-gradient-to-tr from-[#EB9D52] via-[#BC6343] to-[#FFF9F0] shrink-0 shadow-md flex items-center justify-center transition-transform group-hover:scale-105">
               <div className="w-full h-full rounded-full bg-[#1b2631] flex items-center justify-center overflow-hidden">
                 <img 
-                  src="https://res.cloudinary.com/unhl90nr/image/upload/v1788376390/logo_sl8qs4.png" 
-                  alt="Logo Tienda Mixta La Esquinita" 
+                  src={activeStore.logoUrl || "https://res.cloudinary.com/unhl90nr/image/upload/v1788376390/logo_sl8qs4.png"} 
+                  alt={`Logo ${activeStore.name}`} 
                   className="w-full h-full object-contain p-0.5"
                   referrerPolicy="no-referrer"
                 />
@@ -430,14 +441,15 @@ export const POSHeader: React.FC<POSHeaderProps> = ({
 
             {/* Brand Title */}
             <div className="flex flex-col min-w-0">
-              <span className="font-bold text-sm sm:text-[18px] tracking-[-0.01em] text-[#FFF9F0] font-sans leading-tight truncate">
-                La Esquinita
+              <span className="font-bold text-sm sm:text-[18px] tracking-[-0.01em] text-[#FFF9F0] font-sans leading-tight truncate group-hover:text-[#EB9D52] transition-colors">
+                {activeStore.shortName || activeStore.name}
               </span>
-              <span className="text-[9px] sm:text-[10px] text-[#F6E1C6]/75 font-medium tracking-wide leading-none hidden sm:block">
-                Tienda Mixta
+              <span className="text-[9px] sm:text-[10px] text-[#F6E1C6]/75 font-medium tracking-wide leading-none hidden sm:flex items-center gap-1">
+                <span className="truncate">{activeStore.name !== (activeStore.shortName || '') ? activeStore.name : 'Datos del Negocio'}</span>
+                {onOpenStoreInfo && <Edit3 className="w-2.5 h-2.5 text-[#EB9D52] opacity-70 group-hover:opacity-100 shrink-0" />}
               </span>
             </div>
-          </div>
+          </button>
 
           {/* Shift / Cashier Pill with responsive adaptation */}
           <div className="flex items-center gap-1 pl-1 sm:pl-1.5 border-l border-white/15 shrink-0">
@@ -578,6 +590,18 @@ export const POSHeader: React.FC<POSHeaderProps> = ({
               >
                 <Store className="w-3.5 h-3.5 text-[#FFF9F0]" />
                 <span className="font-semibold">Semáforo & Bolsillo</span>
+              </button>
+            )}
+
+            {/* Módulo Datos de la Tienda (Edición de Nombre, NIT, Dirección y Facturación) */}
+            {onOpenStoreInfo && (
+              <button
+                onClick={safeNavClick(onOpenStoreInfo)}
+                className="modern-nav-item border-l border-white/15 pl-3 ml-1"
+                title={`Configurar Datos de la Tienda (${activeStore.name} • NIT: ${activeStore.nit})`}
+              >
+                <Store className="w-3.5 h-3.5 text-[#EB9D52]" />
+                <span className="font-medium">Datos Tienda</span>
               </button>
             )}
           </nav>
@@ -845,7 +869,20 @@ export const POSHeader: React.FC<POSHeaderProps> = ({
             </button>
           )}
 
-          {/* 9. Ventas Hoy */}
+          {/* 9. Datos de la Tienda (Edición centralizada) */}
+          {onOpenStoreInfo && (
+            <button
+              type="button"
+              onClick={safeRibbonClick(onOpenStoreInfo)}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold shrink-0 bg-white/10 hover:bg-white/20 text-[#FFF9F0] border border-white/15 transition-all cursor-pointer active:scale-95"
+              title="Editar Datos de la Tienda (Nombre, NIT, Dirección, Teléfono, etc.)"
+            >
+              <Store className="w-3.5 h-3.5 text-[#EB9D52]" />
+              <span>Datos Tienda</span>
+            </button>
+          )}
+
+          {/* 10. Ventas Hoy */}
           <button
             type="button"
             onClick={safeRibbonClick(onOpenHistory)}
@@ -1557,6 +1594,25 @@ export const POSHeader: React.FC<POSHeaderProps> = ({
                       <div className="text-[10px] text-[#F6E1C6]/70">Personalizar accesos rápidos (ej: Huevos, Leche, Pan...)</div>
                     </div>
                   </button>
+
+                  {/* Datos de la Tienda & Facturación */}
+                  {onOpenStoreInfo && (
+                    <button
+                      onClick={() => {
+                        setIsMobileMenuOpen(false);
+                        onOpenStoreInfo();
+                      }}
+                      className="w-full p-2.5 rounded-none bg-[#EB9D52]/15 hover:bg-[#EB9D52]/25 border border-[#EB9D52]/40 flex items-center gap-3 transition-all text-left cursor-pointer active:scale-[0.98]"
+                    >
+                      <div className="w-8 h-8 rounded-none bg-[#214C6A] flex items-center justify-center text-[#EB9D52] shrink-0 border border-white/20">
+                        <Store className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="font-bold text-xs sm:text-sm text-[#FFF9F0]">Datos de la Tienda & Facturación</div>
+                        <div className="text-[10px] text-[#F6E1C6]/80">Nombre, NIT, dirección, teléfono, logo y pie de factura</div>
+                      </div>
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

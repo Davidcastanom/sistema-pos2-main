@@ -1,16 +1,53 @@
 import jsPDF from 'jspdf';
-import { SaleTransaction } from '@/types';
+import { SaleTransaction, StoreInfo } from '@/types';
+import { DEFAULT_STORE_INFO } from '@/data/initialData';
 import { formatCOP } from '@/lib/utils';
+
+/**
+ * Returns saved store info from localStorage or default fallback
+ */
+export function getSavedStoreInfo(): StoreInfo {
+  try {
+    const saved = localStorage.getItem('pos_store_info_v1');
+    if (saved) {
+      return { ...DEFAULT_STORE_INFO, ...JSON.parse(saved) };
+    }
+  } catch (e) {
+    console.error('Error reading pos_store_info_v1:', e);
+  }
+  return DEFAULT_STORE_INFO;
+}
 
 /**
  * Generates an authentic 80mm thermal receipt PDF and triggers download
  */
-export function generateInvoicePDF(transaction: SaleTransaction, _autoDownload: boolean = true): void {
+export function generateInvoicePDF(
+  transaction: SaleTransaction, 
+  _autoDownload: boolean = true,
+  customStoreInfo?: StoreInfo
+): void {
   try {
+    const store = customStoreInfo || getSavedStoreInfo();
     const itemLineCount = transaction.items.length;
     const taxCount = transaction.taxBreakdown?.length || 1;
-    // Calculate total height needed based on items and details
-    const estimatedHeight = Math.max(160, 130 + itemLineCount * 7 + taxCount * 5);
+    
+    // Calculate total height accurately based on content sections to prevent white cutoffs or blank voids
+    const hasLogo = Boolean(store.logoUrl);
+    let neededHeight = hasLogo ? 38 : 22; // Header with or without 1:1 circular logo
+    neededHeight += (store.shortName && store.shortName.toUpperCase() !== store.name.slice(0, 32).toUpperCase()) ? 6 : 0;
+    neededHeight += 18; // NIT, address, phones
+    neededHeight += 24; // Invoice meta (POS #, date, cashier, client, payment method)
+    if (transaction.customerDocument) neededHeight += 4;
+    neededHeight += itemLineCount * 6; // Item lines
+    neededHeight += 16; // Subtotal and discounts
+    neededHeight += taxCount * 3.8; // Taxes breakdown
+    neededHeight += 12; // Total prominent
+    if (transaction.paymentMethod === 'Efectivo' && transaction.amountReceived) neededHeight += 10;
+    if (transaction.customDetails) neededHeight += 5;
+    neededHeight += 18; // Footer messages and resolution
+    neededHeight += 12; // Safety bottom roll buffer
+
+    const estimatedHeight = Math.max(90, Math.ceil(neededHeight));
 
     const doc = new jsPDF({
       orientation: 'portrait',
@@ -18,43 +55,89 @@ export function generateInvoicePDF(transaction: SaleTransaction, _autoDownload: 
       format: [80, estimatedHeight],
     });
 
+    let currentY = 5;
+
+    // 1:1 Circular Logo at top of PDF
+    if (store.logoUrl) {
+      try {
+        // Render 1:1 square image (14mm x 14mm) centered at x = (80 - 14)/2 = 33mm
+        doc.addImage(store.logoUrl, 'PNG', 33, currentY, 14, 14);
+        // Draw elegant circular border around 1:1 logo
+        doc.setDrawColor(33, 76, 106);
+        doc.setLineWidth(0.35);
+        doc.circle(40, currentY + 7, 7.3, 'S');
+        currentY += 17;
+      } catch {
+        // Fallback: draw circular monogram badge
+        doc.setFillColor(33, 76, 106);
+        doc.circle(40, currentY + 6.5, 6.5, 'F');
+        doc.setFont('courier', 'bold');
+        doc.setFontSize(8.5);
+        doc.setTextColor(255, 255, 255);
+        const initials = (store.shortName || store.name).slice(0, 2).toUpperCase();
+        doc.text(initials, 40, currentY + 9, { align: 'center' });
+        currentY += 16;
+      }
+    } else {
+      currentY += 2;
+    }
+
     // Header styling
     doc.setFont('courier', 'bold');
-    doc.setFontSize(13);
+    doc.setFontSize(11);
     doc.setTextColor(27, 38, 49);
-    doc.text('TIENDA MIXTA', 40, 9, { align: 'center' });
+    doc.text(store.name.slice(0, 32).toUpperCase(), 40, currentY, { align: 'center' });
+    currentY += 5;
 
-    doc.setFontSize(14);
-    doc.setTextColor(33, 76, 106);
-    doc.text('LA ESQUINITA', 40, 15, { align: 'center' });
+    if (store.shortName && store.shortName.toUpperCase() !== store.name.slice(0, 32).toUpperCase()) {
+      doc.setFontSize(12);
+      doc.setTextColor(33, 76, 106);
+      doc.text(store.shortName.toUpperCase(), 40, currentY, { align: 'center' });
+      currentY += 5;
+    }
 
     doc.setFont('courier', 'normal');
     doc.setFontSize(7.5);
     doc.setTextColor(60, 60, 60);
-    doc.text('NIT: 900.842.193-4 • Regimen Simple', 40, 20, { align: 'center' });
-    doc.text('Cra 43A # 18 Sur - 45, Medellin', 40, 24, { align: 'center' });
-    doc.text('Tel: (604) 444 8920 • Cel: 310 847 9201', 40, 28, { align: 'center' });
+    const regimenStr = store.regimen ? ` • ${store.regimen}` : '';
+    doc.text(`NIT: ${store.nit}${regimenStr}`, 40, currentY, { align: 'center' });
+    currentY += 4;
+    const locationStr = store.city ? `${store.address} - ${store.city}` : store.address;
+    doc.text(locationStr.slice(0, 42), 40, currentY, { align: 'center' });
+    currentY += 4;
+    
+    const phoneParts: string[] = [];
+    if (store.landline) phoneParts.push(`Tel: ${store.landline}`);
+    if (store.phone) phoneParts.push(`Cel: ${store.phone}`);
+    if (phoneParts.length > 0) {
+      doc.text(phoneParts.join(' • '), 40, currentY, { align: 'center' });
+      currentY += 4;
+    }
 
     // Separator line
     doc.setDrawColor(180, 180, 180);
     doc.setLineDashPattern([1, 1], 0);
-    doc.line(4, 31, 76, 31);
+    doc.line(4, currentY, 76, currentY);
+    currentY += 4;
 
     // Invoice Meta
     doc.setFontSize(8);
     doc.setTextColor(30, 30, 30);
-    doc.text(`FACTURA POS: #${transaction.id}`, 4, 35);
+    doc.text(`FACTURA POS: #${transaction.id}`, 4, currentY);
+    currentY += 4;
 
     const dateStr =
       transaction.timestamp instanceof Date
         ? transaction.timestamp.toLocaleString('es-CO')
         : new Date(transaction.timestamp).toLocaleString('es-CO');
 
-    doc.text(`FECHA: ${dateStr}`, 4, 39);
-    doc.text(`CAJERO: ${transaction.cashierName || 'Don Esteban'}`, 4, 43);
-    doc.text(`CLIENTE: ${(transaction.customerName || 'Consumidor Final').slice(0, 25)}`, 4, 47);
+    doc.text(`FECHA: ${dateStr}`, 4, currentY);
+    currentY += 4;
+    doc.text(`CAJERO: ${transaction.cashierName || store.defaultCashierName || 'Don Esteban'}`, 4, currentY);
+    currentY += 4;
+    doc.text(`CLIENTE: ${(transaction.customerName || 'Consumidor Final').slice(0, 25)}`, 4, currentY);
+    currentY += 4;
 
-    let currentY = 51;
     if (transaction.customerDocument) {
       doc.text(`DOC: ${transaction.customerDocument}`, 4, currentY);
       currentY += 4;
@@ -165,18 +248,25 @@ export function generateInvoicePDF(transaction: SaleTransaction, _autoDownload: 
 
     // Footer
     doc.setFontSize(7);
-    doc.text('MUCHAS GRACIAS POR SU COMPRA', 40, currentY, { align: 'center' });
+    doc.text(
+      (store.invoiceFooterMessage || 'MUCHAS GRACIAS POR SU COMPRA').slice(0, 48),
+      40,
+      currentY,
+      { align: 'center' }
+    );
     currentY += 3.5;
-    doc.text('Conserve este comprobante para garantias', 40, currentY, { align: 'center' });
-    currentY += 3.5;
-    doc.text('Software POS La Esquinita • Colombia', 40, currentY, { align: 'center' });
+    if (store.resolutionInfo) {
+      doc.text(store.resolutionInfo.slice(0, 50), 40, currentY, { align: 'center' });
+      currentY += 3.5;
+    }
+    doc.text(`Software POS ${store.shortName || store.name} • Colombia`, 40, currentY, { align: 'center' });
 
     // Download document directly
     doc.save(`Factura_POS_${transaction.id}.pdf`);
   } catch (error) {
     console.error('Error generating PDF with jsPDF:', error);
     // Fallback: Trigger thermal print
-    printThermalReceipt(transaction);
+    printThermalReceipt(transaction, customStoreInfo);
   }
 }
 
@@ -185,7 +275,8 @@ export function generateInvoicePDF(transaction: SaleTransaction, _autoDownload: 
  * This completely isolates the receipt ticket so only the 80mm receipt is printed,
  * avoiding blank pages and browser popup blocks inside iframes.
  */
-export function printThermalReceipt(transaction: SaleTransaction): void {
+export function printThermalReceipt(transaction: SaleTransaction, customStoreInfo?: StoreInfo): void {
+  const store = customStoreInfo || getSavedStoreInfo();
   const dateStr =
     transaction.timestamp instanceof Date
       ? transaction.timestamp.toLocaleString('es-CO')
@@ -226,6 +317,10 @@ export function printThermalReceipt(transaction: SaleTransaction): void {
            <span>${formatCOP(transaction.tax || 0)}</span>
          </div>`;
 
+  const phoneText = [store.landline ? `Tel: ${store.landline}` : '', store.phone ? `Cel: ${store.phone}` : '']
+    .filter(Boolean)
+    .join(' • ');
+
   const receiptHtml = `
     <!DOCTYPE html>
     <html>
@@ -235,17 +330,23 @@ export function printThermalReceipt(transaction: SaleTransaction): void {
         <style>
           @page {
             size: 80mm auto;
-            margin: 2mm;
+            margin: 0;
+          }
+          html, body {
+            margin: 0;
+            padding: 0;
+            background: #fff;
           }
           body {
-            font-family: 'Courier New', Courier, monospace, monospace;
+            font-family: 'Courier New', Courier, monospace;
             font-size: 11px;
             line-height: 1.3;
             color: #000;
             background: #fff;
-            margin: 0;
-            padding: 8px;
+            margin: 0 auto;
+            padding: 6mm 4mm 10mm 4mm;
             max-width: 76mm;
+            box-sizing: border-box;
           }
           .text-center { text-align: center; }
           .text-right { text-align: right; }
@@ -257,11 +358,30 @@ export function printThermalReceipt(transaction: SaleTransaction): void {
       </head>
       <body>
         <div class="text-center">
-          <h2 style="margin: 0; font-size: 15px; font-weight: bold;">TIENDA MIXTA</h2>
-          <h1 style="margin: 0 0 4px 0; font-size: 16px; font-weight: 900; color: #214C6A;">LA ESQUINITA</h1>
-          <div style="font-size: 9.5px; color: #333;">NIT: 900.842.193-4 • Régimen Simple</div>
-          <div style="font-size: 9.5px; color: #333;">Cra 43A # 18 Sur - 45, Medellín</div>
-          <div style="font-size: 9.5px; color: #333;">Tel: (604) 444 8920 • Cel: 310 847 9201</div>
+          ${
+            store.logoUrl
+              ? `
+            <div style="margin-bottom: 8px; display: flex; justify-content: center; align-items: center;">
+              <div style="display: inline-block; width: 54px; height: 54px; border-radius: 50%; border: 1.5px solid #214C6A; padding: 2px; background: #ffffff; box-sizing: border-box; overflow: hidden;">
+                <img 
+                  src="${store.logoUrl}" 
+                  alt="Logo" 
+                  style="width: 100%; height: 100%; object-fit: contain; border-radius: 50%; display: block;" 
+                />
+              </div>
+            </div>
+          `
+              : ''
+          }
+          <h2 style="margin: 0; font-size: 13px; font-weight: bold;">${store.name.toUpperCase()}</h2>
+          ${
+            store.shortName && store.shortName.toUpperCase() !== store.name.toUpperCase()
+              ? `<h1 style="margin: 0 0 4px 0; font-size: 15px; font-weight: 900; color: #214C6A;">${store.shortName.toUpperCase()}</h1>`
+              : ''
+          }
+          <div style="font-size: 9.5px; color: #333;">NIT: ${store.nit}${store.regimen ? ` • ${store.regimen}` : ''}</div>
+          <div style="font-size: 9.5px; color: #333;">${store.address}${store.city ? `, ${store.city}` : ''}</div>
+          ${phoneText ? `<div style="font-size: 9.5px; color: #333;">${phoneText}</div>` : ''}
         </div>
 
         <div class="divider"></div>
@@ -269,7 +389,7 @@ export function printThermalReceipt(transaction: SaleTransaction): void {
         <div style="font-size: 10px; line-height: 1.35;">
           <div><strong>FACTURA POS:</strong> #${transaction.id}</div>
           <div><strong>FECHA / HORA:</strong> ${dateStr}</div>
-          <div><strong>CAJERO:</strong> ${transaction.cashierName || 'Don Esteban'}</div>
+          <div><strong>CAJERO:</strong> ${transaction.cashierName || store.defaultCashierName || 'Don Esteban'}</div>
           <div><strong>CLIENTE:</strong> ${transaction.customerName || 'Consumidor Final'}</div>
           ${transaction.customerDocument ? `<div><strong>DOC / CC:</strong> ${transaction.customerDocument}</div>` : ''}
           <div><strong>FORMA DE PAGO:</strong> ${transaction.paymentMethod}</div>
@@ -346,9 +466,9 @@ export function printThermalReceipt(transaction: SaleTransaction): void {
         <div class="divider"></div>
 
         <div class="text-center" style="font-size: 9.5px; color: #444; margin-top: 6px;">
-          <p style="margin: 2px 0; font-weight: bold;">¡GRACIAS POR SU COMPRA!</p>
-          <p style="margin: 2px 0;">Conserve este comprobante para cualquier reclamo.</p>
-          <p style="margin: 4px 0 0 0; font-size: 8px; color: #777;">Software POS La Esquinita • Cloud Edition</p>
+          <p style="margin: 2px 0; font-weight: bold;">${store.invoiceFooterMessage || '¡GRACIAS POR SU COMPRA!'}</p>
+          ${store.resolutionInfo ? `<p style="margin: 2px 0; font-size: 8px; color: #666;">${store.resolutionInfo}</p>` : ''}
+          <p style="margin: 4px 0 0 0; font-size: 8px; color: #777;">Software POS ${store.shortName || store.name} • Cloud Edition</p>
         </div>
       </body>
     </html>
@@ -386,21 +506,31 @@ export function printThermalReceipt(transaction: SaleTransaction): void {
 /**
  * Returns clean plain text format of the receipt for clipboard or quick view
  */
-export function getInvoicePlainText(transaction: SaleTransaction): string {
+export function getInvoicePlainText(transaction: SaleTransaction, customStoreInfo?: StoreInfo): string {
+  const store = customStoreInfo || getSavedStoreInfo();
   const dateStr =
     transaction.timestamp instanceof Date
       ? transaction.timestamp.toLocaleString('es-CO')
       : new Date(transaction.timestamp).toLocaleString('es-CO');
 
   let text = `==============================\n`;
-  text += `   TIENDA MIXTA LA ESQUINITA\n`;
-  text += `     NIT: 900.842.193-4\n`;
-  text += `Cra 43A # 18 Sur - 45, Medellín\n`;
+  text += `   ${store.name.toUpperCase()}\n`;
+  if (store.shortName && store.shortName.toUpperCase() !== store.name.toUpperCase()) {
+    text += `   ${store.shortName.toUpperCase()}\n`;
+  }
+  text += `     NIT: ${store.nit}\n`;
+  text += `${store.address}${store.city ? ` - ${store.city}` : ''}\n`;
+  if (store.phone) {
+    text += `Cel / WhatsApp: ${store.phone}\n`;
+  }
   text += `==============================\n`;
   text += `FACTURA POS: #${transaction.id}\n`;
   text += `FECHA: ${dateStr}\n`;
-  text += `CAJERO: ${transaction.cashierName || 'Don Esteban'}\n`;
+  text += `CAJERO: ${transaction.cashierName || store.defaultCashierName || 'Don Esteban'}\n`;
   text += `CLIENTE: ${transaction.customerName || 'Consumidor Final'}\n`;
+  if (transaction.customerDocument) {
+    text += `DOCUMENTO: ${transaction.customerDocument}\n`;
+  }
   text += `PAGO: ${transaction.paymentMethod}\n`;
   text += `------------------------------\n`;
   text += `CANT  DESCRIPCION       TOTAL\n`;
@@ -430,7 +560,10 @@ export function getInvoicePlainText(transaction: SaleTransaction): string {
   }
 
   text += `==============================\n`;
-  text += `   ¡GRACIAS POR SU COMPRA!\n`;
+  text += `   ${store.invoiceFooterMessage || '¡GRACIAS POR SU COMPRA!'}\n`;
+  if (store.resolutionInfo) {
+    text += `   ${store.resolutionInfo}\n`;
+  }
   text += `==============================\n`;
 
   return text;
@@ -439,8 +572,8 @@ export function getInvoicePlainText(transaction: SaleTransaction): string {
 /**
  * Generates a WhatsApp share link with pre-filled message
  */
-export function getWhatsAppShareUrl(transaction: SaleTransaction): string {
-  const plainText = getInvoicePlainText(transaction);
+export function getWhatsAppShareUrl(transaction: SaleTransaction, customStoreInfo?: StoreInfo): string {
+  const plainText = getInvoicePlainText(transaction, customStoreInfo);
   const encoded = encodeURIComponent(plainText);
   return `https://api.whatsapp.com/send?text=${encoded}`;
 }

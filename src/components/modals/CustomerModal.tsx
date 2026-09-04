@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Customer, DebtPayment } from '@/types';
+import { Customer, DebtPayment, StoreInfo } from '@/types';
 import { formatCOP } from '@/lib/utils';
+import { getSavedStoreInfo } from '@/lib/pdfGenerator';
 import { 
   Users, 
   UserPlus, 
@@ -16,7 +17,9 @@ import {
   Edit2,
   Trash2,
   CheckCircle2,
-  Plus
+  Plus,
+  MessageSquare,
+  Send
 } from 'lucide-react';
 
 interface CustomerModalProps {
@@ -25,10 +28,13 @@ interface CustomerModalProps {
   customers: Customer[];
   onAddCustomer: (customer: Omit<Customer, 'id' | 'createdAt'>) => void;
   onUpdateCustomer: (id: string, updates: Partial<Customer>) => void;
+  onDeleteCustomer?: (id: string) => void;
   onSelectCustomerForCart?: (customer: Customer) => void;
+  onSelectCustomerForSale?: (customer: Customer) => void;
   onRecordDebtPayment: (payment: Omit<DebtPayment, 'id' | 'timestamp'>) => void;
-  debtPayments: DebtPayment[];
-  cashierName: string;
+  debtPayments?: DebtPayment[];
+  cashierName?: string;
+  storeInfo?: StoreInfo;
 }
 
 export const CustomerModal: React.FC<CustomerModalProps> = ({
@@ -37,11 +43,15 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({
   customers,
   onAddCustomer,
   onUpdateCustomer,
+  onDeleteCustomer,
   onSelectCustomerForCart,
+  onSelectCustomerForSale,
   onRecordDebtPayment,
-  debtPayments,
-  cashierName,
+  debtPayments = [],
+  cashierName = 'Don Esteban',
+  storeInfo,
 }) => {
+  const selectCustomerHandler = onSelectCustomerForCart || onSelectCustomerForSale;
   const [searchQuery, setSearchQuery] = useState('');
   const [filterDebtOnly, setFilterDebtOnly] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -52,6 +62,19 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({
   const [paymentAmount, setPaymentAmount] = useState<number>(0);
   const [paymentMethod, setPaymentMethod] = useState<'Efectivo' | 'Nequi / Daviplata' | 'Tarjeta Débito/Crédito'>('Efectivo');
   const [paymentNote, setPaymentNote] = useState('');
+  const [sendWhatsAppReceipt, setSendWhatsAppReceipt] = useState<boolean>(true);
+
+  // Send WhatsApp Debt Reminder to Customer
+  const handleSendWhatsAppDebtReminder = (cust: Customer) => {
+    const store = storeInfo || getSavedStoreInfo();
+    let cleanPhone = cust.phone?.replace(/[^0-9]/g, '') || '';
+    if (cleanPhone.length === 10 && !cleanPhone.startsWith('57')) {
+      cleanPhone = `57${cleanPhone}`;
+    }
+    const message = `Hola *${cust.name}*, un saludo cordial de parte de *${store.name}* (NIT: ${store.nit}).\n\nTe compartimos tu estado de cuenta en nuestra libreta de fiados:\n• *Saldo pendiente:* ${formatCOP(cust.currentDebt)}\n• *Cupo de fiado:* ${formatCOP(cust.creditLimit || 0)}\n\nSi deseas abonar o cancelar tu saldo, puedes visitarnos en ${store.address}${store.city ? ` (${store.city})` : ''} o comunicarte con nosotros al ${store.phone}.\n\n¡Muchas gracias por tu preferencia!`;
+    const url = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(message)}`;
+    window.open(url, '_blank');
+  };
 
   // New / Edit Form state
   const [formData, setFormData] = useState({
@@ -147,6 +170,9 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({
     e.preventDefault();
     if (!payingCustomer || paymentAmount <= 0) return;
 
+    const remaining = Math.max(0, payingCustomer.currentDebt - paymentAmount);
+    const store = storeInfo || getSavedStoreInfo();
+
     onRecordDebtPayment({
       customerId: payingCustomer.id,
       customerName: payingCustomer.name,
@@ -155,6 +181,16 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({
       note: paymentNote,
       cashierName,
     });
+
+    if (sendWhatsAppReceipt && payingCustomer.phone) {
+      let cleanPhone = payingCustomer.phone.replace(/[^0-9]/g, '');
+      if (cleanPhone.length === 10 && !cleanPhone.startsWith('57')) {
+        cleanPhone = `57${cleanPhone}`;
+      }
+      const receiptMsg = `🧾 *COMPROBANTE DE ABONO A CUENTA*\n*${store.name.toUpperCase()}*\nNIT: ${store.nit}\nDirección: ${store.address}${store.city ? ` - ${store.city}` : ''}\nTel: ${store.phone}\n------------------------------\n*Cliente:* ${payingCustomer.name}\n*Fecha:* ${new Date().toLocaleString('es-CO')}\n*Cajero:* ${cashierName}\n*Método:* ${paymentMethod}\n*Valor Abonado:* ${formatCOP(paymentAmount)}\n*Saldo Anterior:* ${formatCOP(payingCustomer.currentDebt)}\n*Nuevo Saldo Pendiente:* ${formatCOP(remaining)}\n${paymentNote ? `*Nota:* ${paymentNote}\n` : ''}------------------------------\n${store.invoiceFooterMessage || '¡Muchas gracias por su pago y confianza!'}`;
+      const url = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(receiptMsg)}`;
+      window.open(url, '_blank');
+    }
 
     setPayingCustomer(null);
   };
@@ -414,6 +450,18 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({
                 />
               </div>
 
+              {payingCustomer.phone && (
+                <label className="flex items-center gap-2 text-xs font-bold text-emerald-950 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={sendWhatsAppReceipt}
+                    onChange={(e) => setSendWhatsAppReceipt(e.target.checked)}
+                    className="accent-emerald-700 w-4 h-4 cursor-pointer"
+                  />
+                  <span>Enviar comprobante detallado con datos de la tienda por WhatsApp al cliente ({payingCustomer.phone})</span>
+                </label>
+              )}
+
               <div className="flex items-center justify-between pt-2">
                 <div className="text-xs text-emerald-900">
                   Nuevo saldo tras abono: <strong>{formatCOP(Math.max(0, payingCustomer.currentDebt - paymentAmount))}</strong>
@@ -524,18 +572,30 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({
                             <span className="text-emerald-700 font-bold text-xs">Al día</span>
                           )}
                         </td>
-                        <td className="p-2.5 text-right space-x-1">
+                        <td className="p-2.5 text-right space-x-1 whitespace-nowrap">
                           {/* Choose for active cart */}
-                          {onSelectCustomerForCart && (
+                          {selectCustomerHandler && (
                             <button
                               onClick={() => {
-                                onSelectCustomerForCart(cust);
+                                selectCustomerHandler(cust);
                                 onClose();
                               }}
                               className="px-2 py-1 bg-[#214C6A] hover:bg-[#1a3d55] text-white text-[10px] font-bold rounded-none cursor-pointer"
                               title="Poner a este cliente en la cuenta de cobro actual"
                             >
                               Seleccionar
+                            </button>
+                          )}
+
+                          {/* WhatsApp statement reminder for debts */}
+                          {cust.currentDebt > 0 && cust.phone && (
+                            <button
+                              onClick={() => handleSendWhatsAppDebtReminder(cust)}
+                              className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold rounded-none inline-flex items-center gap-1 cursor-pointer"
+                              title="Enviar estado de cuenta por WhatsApp directo con datos de la tienda"
+                            >
+                              <MessageSquare className="w-3 h-3" />
+                              <span className="hidden sm:inline">WhatsApp</span>
                             </button>
                           )}
 
@@ -558,6 +618,21 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({
                           >
                             <Edit2 className="w-3.5 h-3.5 inline" />
                           </button>
+
+                          {/* Delete button if supported */}
+                          {onDeleteCustomer && (
+                            <button
+                              onClick={() => {
+                                if (window.confirm(`¿Seguro que deseas eliminar al cliente "${cust.name}"?`)) {
+                                  onDeleteCustomer(cust.id);
+                                }
+                              }}
+                              className="p-1 text-rose-500 hover:text-rose-700 cursor-pointer"
+                              title="Eliminar cliente"
+                            >
+                              <Trash2 className="w-3.5 h-3.5 inline" />
+                            </button>
+                          )}
                         </td>
                       </tr>
                     );

@@ -236,3 +236,19 @@ export interface SupplierOrder {
   paidWithCashMovement?: boolean;
 }
 
+export interface StoreInfo {
+  name: string; // e.g. "Tienda Mixta La Esquinita"
+  shortName: string; // e.g. "La Esquinita"
+  nit: string; // e.g. "900.842.193-4"
+  regimen: string; // e.g. "Régimen Simple", "No Responsable de IVA", "Responsable de IVA"
+  address: string; // e.g. "Cra 45 # 23-18 Barrio Central"
+  city: string; // e.g. "Medellín, Antioquia"
+  phone: string; // e.g. "310 456 7890"
+  landline?: string; // e.g. "(604) 444 8920"
+  email?: string; // e.g. "laesquinita.pos@gmail.com"
+  invoiceFooterMessage: string; // e.g. "¡Gracias por su compra! Vuelva pronto."
+  resolutionInfo?: string; // e.g. "Factura POS por Sistema Computarizado"
+  defaultCashierName?: string; // e.g. "Don Esteban"
+  logoUrl?: string;
+}
+

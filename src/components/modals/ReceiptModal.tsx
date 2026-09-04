@@ -1,11 +1,12 @@
 import React, { useRef, useState } from 'react';
-import { SaleTransaction } from '@/types';
+import { SaleTransaction, StoreInfo } from '@/types';
 import { formatCOP } from '@/lib/utils';
 import { 
   generateInvoicePDF, 
   printThermalReceipt, 
   getWhatsAppShareUrl, 
-  getInvoicePlainText 
+  getInvoicePlainText,
+  getSavedStoreInfo
 } from '@/lib/pdfGenerator';
 import { 
   Printer, 
@@ -17,7 +18,9 @@ import {
   Share2, 
   Copy, 
   CheckCheck,
-  Receipt
+  Receipt,
+  Store,
+  Image as ImageIcon
 } from 'lucide-react';
 
 interface ReceiptModalProps {
@@ -25,6 +28,8 @@ interface ReceiptModalProps {
   onClose: () => void;
   transaction: SaleTransaction | null;
   onNewSale: () => void;
+  storeInfo?: StoreInfo;
+  onOpenStoreInfo?: () => void;
 }
 
 export const ReceiptModal: React.FC<ReceiptModalProps> = ({
@@ -32,20 +37,25 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   onClose,
   transaction,
   onNewSale,
+  storeInfo,
+  onOpenStoreInfo,
 }) => {
   const receiptRef = useRef<HTMLDivElement>(null);
   const [downloadSuccess, setDownloadSuccess] = useState<boolean>(false);
   const [copiedSuccess, setCopiedSuccess] = useState<boolean>(false);
+  const [paperWidth, setPaperWidth] = useState<'80mm' | '58mm'>('80mm');
+
+  const activeStore = storeInfo || getSavedStoreInfo();
 
   if (!isOpen || !transaction) return null;
 
   const handlePrint = () => {
-    printThermalReceipt(transaction);
+    printThermalReceipt(transaction, activeStore);
   };
 
   const handleDownloadPDF = () => {
     try {
-      generateInvoicePDF(transaction, true);
+      generateInvoicePDF(transaction, true, activeStore);
       setDownloadSuccess(true);
       setTimeout(() => setDownloadSuccess(false), 3000);
     } catch (err) {
@@ -55,7 +65,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
 
   const handleCopyText = async () => {
     try {
-      const text = getInvoicePlainText(transaction);
+      const text = getInvoicePlainText(transaction, activeStore);
       if (navigator.clipboard) {
         await navigator.clipboard.writeText(text);
       } else {
@@ -74,7 +84,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   };
 
   const handleWhatsApp = () => {
-    const url = getWhatsAppShareUrl(transaction);
+    const url = getWhatsAppShareUrl(transaction, activeStore);
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
@@ -118,31 +128,91 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
           </div>
         )}
 
-        {/* Printable Thermal Receipt Card */}
-        <div className="p-3 sm:p-5 bg-[#F6E1C6]/35 flex justify-center overflow-y-auto flex-1">
+        {/* Printable Thermal Receipt Container (Scrollable stage with no cutoffs) */}
+        <div className="p-3 sm:p-5 bg-slate-900/10 flex flex-col items-center overflow-y-auto flex-1 min-h-0 scroll-smooth">
+          {/* Paper roll format switcher */}
+          <div className="flex items-center justify-between w-full max-w-[340px] mb-2 px-1 text-[11px] shrink-0">
+            <span className="text-slate-600 font-semibold text-[10.5px]">Formato de Impresión:</span>
+            <div className="inline-flex bg-slate-200/90 p-0.5 rounded-lg text-slate-700 text-[10.5px]">
+              <button
+                type="button"
+                onClick={() => setPaperWidth('80mm')}
+                className={`px-2.5 py-0.5 rounded-md font-bold transition-all cursor-pointer ${
+                  paperWidth === '80mm'
+                    ? 'bg-[#214C6A] text-white shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                80mm Estándar
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaperWidth('58mm')}
+                className={`px-2.5 py-0.5 rounded-md font-bold transition-all cursor-pointer ${
+                  paperWidth === '58mm'
+                    ? 'bg-[#214C6A] text-white shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                58mm Mini
+              </button>
+            </div>
+          </div>
+
+          {/* Continuous Thermal Ticket Card */}
           <div
             ref={receiptRef}
-            className="print-only-receipt w-full max-w-[340px] bg-white p-3.5 sm:p-4 shadow-md rounded-none border border-[#214C6A]/20 font-mono text-[11px] text-slate-800 space-y-2.5 print:shadow-none print:border-none print:m-0 print:p-2"
+            className={`print-only-receipt w-full ${
+              paperWidth === '80mm' ? 'max-w-[340px]' : 'max-w-[275px] text-[10px]'
+            } bg-white p-4 sm:p-5 shadow-[0_4px_25px_rgba(0,0,0,0.12)] rounded-none border border-slate-300 font-mono text-slate-800 space-y-2.5 mb-6 print:shadow-none print:border-none print:m-0 print:p-2 relative`}
           >
             {/* Header */}
             <div className="text-center space-y-1 border-b border-dashed border-slate-300 pb-2.5">
-              <div className="flex justify-center mb-1">
-                <img
-                  src="https://res.cloudinary.com/unhl90nr/image/upload/v1788376390/logo_sl8qs4.png"
-                  alt="Logo Tienda Mixta La Esquinita"
-                  className="w-12 h-12 rounded-full object-contain mx-auto"
-                  referrerPolicy="no-referrer"
-                />
+              {/* 1:1 Circular Store Logo */}
+              <div className="flex justify-center mb-1.5">
+                <div className="w-16 h-16 rounded-full border-2 border-[#214C6A] p-0.5 bg-white shadow-2xs overflow-hidden flex items-center justify-center aspect-square">
+                  {activeStore.logoUrl ? (
+                    <img
+                      src={activeStore.logoUrl}
+                      alt={activeStore.name}
+                      className="w-full h-full object-contain rounded-full"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-slate-100 flex items-center justify-center text-[#214C6A] font-bold text-xs">
+                      {activeStore.name.slice(0, 2).toUpperCase()}
+                    </div>
+                  )}
+                </div>
               </div>
+
               <div className="font-bold text-xs text-slate-900 tracking-wider">
-                TIENDA MIXTA
+                {activeStore.name.toUpperCase()}
               </div>
-              <div className="font-extrabold text-sm text-[#214C6A]">
-                LA ESQUINITA
+              {activeStore.shortName && activeStore.shortName.toUpperCase() !== activeStore.name.toUpperCase() && (
+                <div className="font-extrabold text-sm text-[#214C6A]">
+                  {activeStore.shortName.toUpperCase()}
+                </div>
+              )}
+              <div className="text-[9.5px]">NIT: {activeStore.nit}{activeStore.regimen ? ` • ${activeStore.regimen}` : ''}</div>
+              <div className="text-[9.5px]">{activeStore.address}{activeStore.city ? `, ${activeStore.city}` : ''}</div>
+              <div className="text-[9.5px]">
+                {[activeStore.landline ? `Tel: ${activeStore.landline}` : '', activeStore.phone ? `Cel: ${activeStore.phone}` : ''].filter(Boolean).join(' • ')}
               </div>
-              <div className="text-[9.5px]">NIT: 900.842.193-4 • Régimen Simple</div>
-              <div className="text-[9.5px]">Cra 43A # 18 Sur - 45, Medellín</div>
-              <div className="text-[9.5px]">Tel: (604) 444 8920 • Cel: 310 847 9201</div>
+              
+              {onOpenStoreInfo && (
+                <div className="pt-1 flex justify-center">
+                  <button
+                    type="button"
+                    onClick={onOpenStoreInfo}
+                    className="inline-flex items-center gap-1.5 text-[10px] font-sans font-bold text-[#214C6A] bg-[#FFF9F0] hover:bg-[#F6E1C6] border border-[#214C6A]/25 px-2.5 py-1 rounded-full transition-colors cursor-pointer shadow-2xs"
+                    title="Editar logotipo 1:1 circular y datos oficiales"
+                  >
+                    <ImageIcon className="w-3 h-3 text-[#BC6343]" />
+                    <span>Editar Logo (1:1 en Círculo)</span>
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Invoice Info */}
@@ -276,9 +346,22 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
 
             {/* Footer Notice */}
             <div className="text-center text-[9.5px] space-y-1 pt-1 text-slate-600">
-              <p className="font-semibold">¡GRACIAS POR SU COMPRA!</p>
+              <p className="font-semibold">{activeStore.invoiceFooterMessage || '¡GRACIAS POR SU COMPRA!'}</p>
               <p>Conserve esta tirilla para cualquier reclamo o garantía.</p>
-              <p className="text-[8.5px] text-slate-400">Software POS Tienda Mixta La Esquinita</p>
+              {activeStore.resolutionInfo && (
+                <p className="text-[8px] text-slate-400">{activeStore.resolutionInfo}</p>
+              )}
+              <p className="text-[8.5px] text-slate-400">Software POS {activeStore.shortName || activeStore.name}</p>
+            </div>
+
+            {/* Jagged Thermal Paper Cut Edge (Visual roll finish) */}
+            <div className="w-full h-3 -mb-5 mt-4 overflow-hidden relative opacity-70">
+              <svg className="w-full h-full text-slate-300" preserveAspectRatio="none" viewBox="0 0 120 12">
+                <path
+                  d="M0,0 L5,8 L10,0 L15,8 L20,0 L25,8 L30,0 L35,8 L40,0 L45,8 L50,0 L55,8 L60,0 L65,8 L70,0 L75,8 L80,0 L85,8 L90,0 L95,8 L100,0 L105,8 L110,0 L115,8 L120,0 L120,12 L0,12 Z"
+                  fill="currentColor"
+                />
+              </svg>
             </div>
           </div>
         </div>

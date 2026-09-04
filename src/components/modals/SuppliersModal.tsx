@@ -5,8 +5,10 @@ import {
   ProductSupplierQuote, 
   SupplierOrder, 
   SupplierOrderItem,
-  CategoryInfo 
+  CategoryInfo,
+  StoreInfo
 } from '@/types';
+import { getSavedStoreInfo } from '@/lib/pdfGenerator';
 import { formatCOP } from '@/lib/utils';
 import { 
   Truck, 
@@ -62,6 +64,7 @@ interface SuppliersModalProps {
   onResetSuppliersAndQuotes?: () => void;
   initialTab?: 'directory' | 'compare' | 'reorder' | 'orders';
   selectedProductIdForCompare?: string | number | null;
+  storeInfo?: StoreInfo;
 }
 
 export const SuppliersModal: React.FC<SuppliersModalProps> = ({
@@ -82,7 +85,9 @@ export const SuppliersModal: React.FC<SuppliersModalProps> = ({
   onResetSuppliersAndQuotes,
   initialTab = 'directory',
   selectedProductIdForCompare = null,
+  storeInfo,
 }) => {
+  const activeStore = storeInfo || getSavedStoreInfo();
   const [activeTab, setActiveTab] = useState<'directory' | 'compare' | 'reorder' | 'orders'>(initialTab);
 
   // Search & Filters
@@ -382,7 +387,7 @@ export const SuppliersModal: React.FC<SuppliersModalProps> = ({
       day: 'numeric',
     });
 
-    let message = `🏪 *SOLICITUD DE PEDIDO - TIENDA MIXTA LA ESQUINITA*\n`;
+    let message = `🏪 *SOLICITUD DE PEDIDO - ${activeStore.name.toUpperCase()}*\n`;
     message += `📅 Fecha: ${dateStr}\n`;
     message += `👤 Proveedor: ${selectedSupplierObj.name}\n`;
     message += `📞 Asesor / Preventista: ${selectedSupplierObj.contactPerson || 'Atención a Pedidos'}\n`;
@@ -400,8 +405,10 @@ export const SuppliersModal: React.FC<SuppliersModalProps> = ({
     if (orderNotes) {
       message += `📝 *Observaciones:* ${orderNotes}\n`;
     }
-    message += `\n📍 *Dirección de Entrega:* Cl. 45 #23-18, Barrio El Prado\n`;
-    message += `✅ *Por favor confirmar recibido y fecha de entrega. ¡Muchas gracias!*`;
+    message += `\n📍 *Lugar de Entrega:* ${activeStore.address}${activeStore.city ? `, ${activeStore.city}` : ''}\n`;
+    message += `📞 *Teléfono / Contacto:* ${activeStore.phone || activeStore.landline || 'No registrado'}\n`;
+    message += `🆔 *NIT / Identificación:* ${activeStore.nit}\n`;
+    message += `✅ *Por favor confirmar recibido y fecha estimada de entrega. ¡Muchas gracias!*`;
 
     const encodedMsg = encodeURIComponent(message);
     const whatsappUrl = `https://wa.me/${phone}?text=${encodedMsg}`;
@@ -437,12 +444,12 @@ export const SuppliersModal: React.FC<SuppliersModalProps> = ({
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Orden de Abastecimiento - Tienda Mixta La Esquinita</title>
+          <title>Orden de Abastecimiento - ${activeStore.name}</title>
           <style>
             body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 24px; color: #1e293b; }
             .header { text-align: center; border-bottom: 2px solid #214C6A; padding-bottom: 12px; margin-bottom: 20px; }
-            .logo { width: 64px; height: 64px; margin: 0 auto 8px auto; display: block; }
-            h1 { margin: 0; color: #214C6A; font-size: 20px; }
+            .logo { width: 64px; height: 64px; margin: 0 auto 8px auto; display: block; border-radius: 50%; object-fit: contain; }
+            h1 { margin: 0; color: #214C6A; font-size: 20px; font-weight: 800; }
             .sub { color: #64748b; font-size: 12px; }
             .meta { display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 13px; }
             .meta div { background: #f8fafc; border: 1px solid #e2e8f0; padding: 10px; border-radius: 6px; width: 48%; }
@@ -456,9 +463,9 @@ export const SuppliersModal: React.FC<SuppliersModalProps> = ({
         </head>
         <body>
           <div class="header">
-            <img src="https://res.cloudinary.com/unhl90nr/image/upload/v1788376390/logo_sl8qs4.png" class="logo" />
-            <h1>TIENDA MIXTA LA ESQUINITA</h1>
-            <div class="sub">NIT: 901.482.391-4 • Cl. 45 #23-18 • Cel / WhatsApp: 310 456 7890</div>
+            <img src="${activeStore.logoUrl || 'https://res.cloudinary.com/unhl90nr/image/upload/v1788376390/logo_sl8qs4.png'}" class="logo" />
+            <h1>${activeStore.name.toUpperCase()}</h1>
+            <div class="sub">NIT: ${activeStore.nit} • ${activeStore.address}${activeStore.city ? `, ${activeStore.city}` : ''} • Tel: ${activeStore.phone}</div>
             <h2 style="font-size: 16px; color: #BC6343; margin-top: 8px;">SOLICITUD DE PEDIDO & ORDEN DE COMPRA</h2>
           </div>
 
@@ -474,7 +481,7 @@ export const SuppliersModal: React.FC<SuppliersModalProps> = ({
               <strong>DATOS DE LA ORDEN:</strong><br />
               <b>Fecha:</b> ${new Date().toLocaleDateString('es-CO')}<br />
               <b>Condición de Pago:</b> ${selectedSupplierObj.paymentTerms || 'Contado'}<br />
-              <b>Lugar de Entrega:</b> Cl. 45 #23-18, Barrio El Prado<br />
+              <b>Lugar de Entrega:</b> ${activeStore.address}${activeStore.city ? `, ${activeStore.city}` : ''}<br />
               <b>Observaciones:</b> ${orderNotes || 'Ninguna'}
             </div>
           </div>

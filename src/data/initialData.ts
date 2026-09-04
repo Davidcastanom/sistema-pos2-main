@@ -1,4 +1,4 @@
-import { CategoryInfo, ProductItem, Customer, Supplier } from '@/types';
+import { CategoryInfo, ProductItem, Customer, Supplier, StoreInfo } from '@/types';
 
 export const INITIAL_SUPPLIERS: Supplier[] = [
   {
@@ -827,3 +827,19 @@ export const INITIAL_CUSTOMERS: Customer[] = [
     notes: 'Compra insumos y lácteos para la panadería.',
   },
 ];
+
+export const DEFAULT_STORE_INFO: StoreInfo = {
+  name: 'Tienda Mixta La Esquinita',
+  shortName: 'La Esquinita',
+  nit: '900.842.193-4',
+  regimen: 'Régimen Simple',
+  address: 'Cra 45 # 23-18 Barrio Central',
+  city: 'Medellín, Antioquia',
+  phone: '310 456 7890',
+  landline: '(604) 444 8920',
+  email: 'laesquinita.pos@gmail.com',
+  invoiceFooterMessage: '¡Gracias por su compra! Vuelva pronto.',
+  resolutionInfo: 'Factura POS por Sistema Computarizado',
+  defaultCashierName: 'Don Esteban',
+  logoUrl: 'https://res.cloudinary.com/unhl90nr/image/upload/v1788376390/logo_sl8qs4.png',
+};

@@ -153,86 +153,125 @@ export const ManagerDashboardModal: React.FC<ManagerDashboardModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/75 backdrop-blur-md animate-fadeIn">
-      <div className="bg-[#FFF9F0]/92 backdrop-blur-2xl w-full max-w-5xl max-h-[94vh] flex flex-col shadow-2xl border-2 border-[#214C6A] overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-1.5 sm:p-4 bg-black/75 backdrop-blur-md animate-fadeIn">
+      <div className="bg-[#FFF9F0]/92 backdrop-blur-2xl w-full max-w-5xl h-[96vh] sm:h-auto sm:max-h-[94vh] flex flex-col shadow-2xl border-2 border-[#214C6A] overflow-hidden">
         
         {/* Modal Header */}
-        <div className="bg-[#214C6A]/95 backdrop-blur-xl px-4 sm:px-6 py-3.5 sm:py-4 text-[#FFF9F0] flex items-center justify-between border-b-2 border-[#BC6343] shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-[#1a3d55] border border-white/30 flex items-center justify-center text-[#FFF9F0] shadow-sm overflow-hidden p-0.5 shrink-0">
-              <img 
-                src="https://res.cloudinary.com/unhl90nr/image/upload/v1788376390/logo_sl8qs4.png" 
-                alt="Logo Tienda Mixta" 
-                className="w-full h-full object-contain"
-                referrerPolicy="no-referrer"
-              />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-base sm:text-lg font-bold tracking-tight font-title">
-                  Panel Gerencial del Tendero
-                </h2>
-                <span className="bg-[#EB9D52] text-[#222E3A] text-[10px] font-black uppercase px-2 py-0.5 tracking-wider shadow-2xs font-secondary">
-                  Semáforo & Bolsillo
-                </span>
+        <div className="bg-[#214C6A]/95 backdrop-blur-xl px-3.5 sm:px-6 py-3 sm:py-4 text-[#FFF9F0] border-b-2 border-[#BC6343] shrink-0">
+          <div className="flex items-center justify-between gap-2 sm:gap-4">
+            
+            {/* Title & Brand */}
+            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#1a3d55] border border-white/30 flex items-center justify-center text-[#FFF9F0] shadow-sm overflow-hidden p-0.5 shrink-0">
+                <img 
+                  src="https://res.cloudinary.com/unhl90nr/image/upload/v1788376390/logo_sl8qs4.png" 
+                  alt="Logo Tienda Mixta" 
+                  className="w-full h-full object-contain"
+                  referrerPolicy="no-referrer"
+                />
               </div>
-              <p className="text-xs text-[#F6E1C6]/90 hidden sm:block">
-                Toma el control de tu dinero, gastos fijos y metas sin complicaciones contables
-              </p>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                  <h2 className="text-sm sm:text-lg font-bold tracking-tight font-title text-[#FFF9F0] leading-tight">
+                    Panel Gerencial del Tendero
+                  </h2>
+                  <span className="bg-[#EB9D52] text-[#222E3A] text-[9px] sm:text-[10px] font-black uppercase px-2 py-0.5 tracking-wider shadow-2xs font-secondary whitespace-nowrap">
+                    Semáforo & Bolsillo
+                  </span>
+                </div>
+                <p className="text-[11px] sm:text-xs text-[#F6E1C6]/90 hidden sm:block mt-0.5">
+                  Toma el control de tu dinero, gastos fijos y metas sin complicaciones contables
+                </p>
+              </div>
             </div>
+
+            {/* Desktop Tabs + Close Button */}
+            <div className="flex items-center gap-2 shrink-0">
+              {/* Desktop Tabs (visible on sm+) */}
+              <div className="hidden sm:flex items-center bg-[#1a3d55]/90 backdrop-blur-md p-1 border border-white/15">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('dashboard')}
+                  className={`px-3 py-1.5 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    activeTab === 'dashboard'
+                      ? 'bg-[#EB9D52] text-[#222E3A] shadow-xs'
+                      : 'text-[#FFF9F0] hover:text-white'
+                  }`}
+                >
+                  <TrendingUp className="w-3.5 h-3.5" />
+                  <span className="whitespace-nowrap">Mi Negocio Hoy</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('costs')}
+                  className={`px-3 py-1.5 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                    activeTab === 'costs'
+                      ? 'bg-[#EB9D52] text-[#222E3A] shadow-xs'
+                      : 'text-[#FFF9F0] hover:text-white'
+                  }`}
+                >
+                  <Settings className="w-3.5 h-3.5" />
+                  <span className="whitespace-nowrap">Mis Gastos & Meta</span>
+                </button>
+              </div>
+
+              {/* Close Button */}
+              <button
+                type="button"
+                onClick={onClose}
+                className="p-1.5 text-white/80 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+                title="Cerrar ventana"
+                aria-label="Cerrar ventana"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* Tab switchers */}
-            <div className="flex items-center bg-[#1a3d55]/90 backdrop-blur-md p-1 border border-white/15">
-              <button
-                onClick={() => setActiveTab('dashboard')}
-                className={`px-3 py-1.5 text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
-                  activeTab === 'dashboard'
-                    ? 'bg-[#EB9D52] text-[#222E3A] shadow-xs'
-                    : 'text-[#FFF9F0] hover:text-white'
-                }`}
-              >
-                <TrendingUp className="w-3.5 h-3.5" />
-                <span>Mi Negocio Hoy</span>
-              </button>
-              <button
-                onClick={() => setActiveTab('costs')}
-                className={`px-3 py-1.5 text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
-                  activeTab === 'costs'
-                    ? 'bg-[#EB9D52] text-[#222E3A] shadow-xs'
-                    : 'text-[#FFF9F0] hover:text-white'
-                }`}
-              >
-                <Settings className="w-3.5 h-3.5" />
-                <span>Mis Gastos & Meta</span>
-              </button>
-            </div>
-
+          {/* Mobile Tabs Bar (visible only on mobile screens < sm) */}
+          <div className="sm:hidden mt-2.5 pt-2.5 border-t border-white/15 grid grid-cols-2 gap-1.5">
             <button
-              onClick={onClose}
-              className="p-1.5 text-white/80 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
-              title="Cerrar ventana"
+              type="button"
+              onClick={() => setActiveTab('dashboard')}
+              className={`w-full py-2 px-2 text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs border ${
+                activeTab === 'dashboard'
+                  ? 'bg-[#EB9D52] text-[#222E3A] border-white/40 shadow-xs'
+                  : 'bg-[#1a3d55]/90 text-[#FFF9F0] border-white/15 hover:bg-[#1a3d55]'
+              }`}
             >
-              <X className="w-6 h-6" />
+              <TrendingUp className="w-3.5 h-3.5 shrink-0" />
+              <span className="whitespace-nowrap font-bold">Mi Negocio Hoy</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('costs')}
+              className={`w-full py-2 px-2 text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs border ${
+                activeTab === 'costs'
+                  ? 'bg-[#EB9D52] text-[#222E3A] border-white/40 shadow-xs'
+                  : 'bg-[#1a3d55]/90 text-[#FFF9F0] border-white/15 hover:bg-[#1a3d55]'
+              }`}
+            >
+              <Settings className="w-3.5 h-3.5 shrink-0" />
+              <span className="whitespace-nowrap font-bold">Mis Gastos & Meta</span>
             </button>
           </div>
         </div>
 
         {/* Modal Body */}
-        <div className="p-4 sm:p-6 overflow-y-auto flex-1 bg-[#F6E1C6]/30 backdrop-blur-sm space-y-6">
+        <div className="p-3 sm:p-6 overflow-y-auto flex-1 bg-[#F6E1C6]/30 backdrop-blur-sm space-y-4 sm:space-y-6">
           
           {/* TAB 1: DASHBOARD GERENCIAL SIMPLIFICADO */}
           {activeTab === 'dashboard' && (
-            <div className="space-y-6 animate-fadeIn">
+            <div className="space-y-4 sm:space-y-6 animate-fadeIn">
               
               {/* =========================================================================
                   BLOQUE 1: RESUMEN DEL DÍA Y EFECTIVO EN CAJA ("BOLSILLO")
                   ========================================================================= */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                 
                 {/* 1.1 Venta Total del Día */}
-                <div className="bg-white/80 backdrop-blur-xl border border-white/85 p-5 shadow-[0_8px_24px_rgba(33,76,106,0.08)] relative overflow-hidden flex flex-col justify-between hover:bg-white/95 transition-all">
+                <div className="bg-white/80 backdrop-blur-xl border border-white/85 p-4 sm:p-5 shadow-[0_8px_24px_rgba(33,76,106,0.08)] relative overflow-hidden flex flex-col justify-between hover:bg-white/95 transition-all">
                   <div className="absolute top-0 right-0 w-24 h-24 bg-[#EB9D52]/10 -mr-6 -mt-6 rounded-full pointer-events-none" />
                   
                   <div>
@@ -247,7 +286,7 @@ export const ManagerDashboardModal: React.FC<ManagerDashboardModalProps> = ({
                     </div>
 
                     <div className="my-2">
-                      <div className="text-3xl sm:text-4xl font-black text-[#214C6A] font-secondary tracking-tight">
+                      <div className="text-2xl sm:text-3xl md:text-4xl font-black text-[#214C6A] font-secondary tracking-tight">
                         {formatCOP(totalSalesToday)}
                       </div>
                       <p className="text-xs text-[#56291D]/80 mt-1">
@@ -265,7 +304,7 @@ export const ManagerDashboardModal: React.FC<ManagerDashboardModalProps> = ({
                 </div>
 
                 {/* 1.2 Efectivo Estimado en Caja / Cambio ("El Bolsillo") */}
-                <div className="bg-white/80 backdrop-blur-xl border border-white/85 p-5 shadow-[0_8px_24px_rgba(188,99,67,0.08)] relative overflow-hidden flex flex-col justify-between hover:bg-white/95 transition-all">
+                <div className="bg-white/80 backdrop-blur-xl border border-white/85 p-4 sm:p-5 shadow-[0_8px_24px_rgba(188,99,67,0.08)] relative overflow-hidden flex flex-col justify-between hover:bg-white/95 transition-all">
                   <div className="absolute top-0 right-0 w-24 h-24 bg-[#BC6343]/10 -mr-6 -mt-6 rounded-full pointer-events-none" />
 
                   <div>
@@ -280,7 +319,7 @@ export const ManagerDashboardModal: React.FC<ManagerDashboardModalProps> = ({
                     </div>
 
                     <div className="my-2">
-                      <div className="text-3xl sm:text-4xl font-black text-[#BC6343] font-secondary tracking-tight">
+                      <div className="text-2xl sm:text-3xl md:text-4xl font-black text-[#BC6343] font-secondary tracking-tight">
                         {formatCOP(cashInDrawerData.estimatedCashInHand)}
                       </div>
                       <p className="text-xs text-[#56291D]/80 mt-1">
@@ -289,18 +328,18 @@ export const ManagerDashboardModal: React.FC<ManagerDashboardModalProps> = ({
                     </div>
                   </div>
 
-                  <div className="pt-3 border-t border-[#BC6343]/20 mt-3 grid grid-cols-3 gap-2 text-[11px] text-center">
+                  <div className="pt-3 border-t border-[#BC6343]/20 mt-3 grid grid-cols-3 gap-1.5 sm:gap-2 text-[10px] sm:text-[11px] text-center">
                     <div className="bg-[#F6E1C6]/50 backdrop-blur-xs p-1.5 border border-white/60">
-                      <span className="block text-[10px] text-[#56291D] font-bold">Base Inicial</span>
-                      <strong className="text-[#214C6A] font-mono">{formatCOP(cashInDrawerData.baseCash)}</strong>
+                      <span className="block text-[9px] sm:text-[10px] text-[#56291D] font-bold">Base Inicial</span>
+                      <strong className="text-[#214C6A] font-mono text-[10px] sm:text-xs block truncate">{formatCOP(cashInDrawerData.baseCash)}</strong>
                     </div>
                     <div className="bg-[#F6E1C6]/50 backdrop-blur-xs p-1.5 border border-white/60">
-                      <span className="block text-[10px] text-emerald-800 font-bold">+ Venta Efectivo</span>
-                      <strong className="text-emerald-700 font-mono">+{formatCOP(cashInDrawerData.cashSalesToday)}</strong>
+                      <span className="block text-[9px] sm:text-[10px] text-emerald-800 font-bold">+ Venta Efectivo</span>
+                      <strong className="text-emerald-700 font-mono text-[10px] sm:text-xs block truncate">+{formatCOP(cashInDrawerData.cashSalesToday)}</strong>
                     </div>
                     <div className="bg-[#F6E1C6]/50 backdrop-blur-xs p-1.5 border border-white/60">
-                      <span className="block text-[10px] text-rose-800 font-bold">- Gastos Caja</span>
-                      <strong className="text-rose-700 font-mono">-{formatCOP(cashInDrawerData.cashOutflows)}</strong>
+                      <span className="block text-[9px] sm:text-[10px] text-rose-800 font-bold">- Gastos Caja</span>
+                      <strong className="text-rose-700 font-mono text-[10px] sm:text-xs block truncate">-{formatCOP(cashInDrawerData.cashOutflows)}</strong>
                     </div>
                   </div>
                 </div>
@@ -310,10 +349,10 @@ export const ManagerDashboardModal: React.FC<ManagerDashboardModalProps> = ({
               {/* =========================================================================
                   BLOQUE 2: PROGRESO HACIA LA META (PUNTO DE EQUILIBRIO SIMPLIFICADO)
                   ========================================================================= */}
-              <div className="bg-white/80 backdrop-blur-xl border border-white/85 p-5 shadow-[0_8px_24px_rgba(33,76,106,0.08)]">
+              <div className="bg-white/80 backdrop-blur-xl border border-white/85 p-4 sm:p-5 shadow-[0_8px_24px_rgba(33,76,106,0.08)]">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                   <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-[#214C6A] text-[#EB9D52] flex items-center justify-center font-bold shadow-xs">
+                    <div className="w-8 h-8 bg-[#214C6A] text-[#EB9D52] flex items-center justify-center font-bold shadow-xs shrink-0">
                       <Target className="w-4 h-4" />
                     </div>
                     <div>
@@ -327,6 +366,7 @@ export const ManagerDashboardModal: React.FC<ManagerDashboardModalProps> = ({
                   </div>
 
                   <button
+                    type="button"
                     onClick={() => setActiveTab('costs')}
                     className="self-start sm:self-auto flex items-center gap-1 text-xs font-bold text-[#BC6343] hover:text-[#964937] underline cursor-pointer"
                   >
@@ -336,7 +376,7 @@ export const ManagerDashboardModal: React.FC<ManagerDashboardModalProps> = ({
                 </div>
 
                 {/* Motivational Callout Box with glass glow */}
-                <div className={`p-4 border-l-4 my-4 flex items-start gap-3 backdrop-blur-md shadow-2xs ${
+                <div className={`p-3.5 sm:p-4 border-l-4 my-3 sm:my-4 flex items-start gap-3 backdrop-blur-md shadow-2xs ${
                   breakEvenData.isBreakEvenReached
                     ? 'bg-emerald-50/90 border-emerald-600 text-emerald-950'
                     : breakEvenData.progressPercentage >= 50
@@ -351,7 +391,7 @@ export const ManagerDashboardModal: React.FC<ManagerDashboardModalProps> = ({
                     )}
                   </div>
                   <div>
-                    <p className="text-sm font-bold leading-snug">
+                    <p className="text-xs sm:text-sm font-bold leading-snug">
                       {breakEvenData.motivationalMessage}
                     </p>
                   </div>
@@ -359,15 +399,15 @@ export const ManagerDashboardModal: React.FC<ManagerDashboardModalProps> = ({
 
                 {/* Visual Progress Bar */}
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between text-xs font-bold">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs font-bold gap-1">
                     <span className="text-[#56291D]">
-                      Vendido este mes: <strong className="text-[#214C6A] text-sm font-mono">{formatCOP(breakEvenData.currentMonthSales)}</strong>
+                      Vendido este mes: <strong className="text-[#214C6A] text-xs sm:text-sm font-mono">{formatCOP(breakEvenData.currentMonthSales)}</strong>
                     </span>
-                    <span className="text-[#BC6343] font-black text-sm">
+                    <span className="text-[#BC6343] font-black text-xs sm:text-sm">
                       {breakEvenData.progressPercentage}% alcanzado
                     </span>
                     <span className="text-[#56291D]">
-                      Meta total de venta: <strong className="text-[#214C6A] text-sm font-mono">{formatCOP(breakEvenData.breakEvenMonthlySales)}</strong>
+                      Meta total de venta: <strong className="text-[#214C6A] text-xs sm:text-sm font-mono">{formatCOP(breakEvenData.breakEvenMonthlySales)}</strong>
                     </span>
                   </div>
 
@@ -388,7 +428,7 @@ export const ManagerDashboardModal: React.FC<ManagerDashboardModalProps> = ({
                 </div>
 
                 {/* 3 Metric Pills for Quick Understanding */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4 pt-3 border-t border-[#214C6A]/10 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3 mt-4 pt-3 border-t border-[#214C6A]/10 text-xs">
                   <div className="bg-[#F6E1C6]/45 backdrop-blur-sm p-2.5 border border-white/70 shadow-2xs">
                     <span className="text-[11px] text-[#56291D] block font-bold">Gastos Fijos del Mes</span>
                     <strong className="text-sm font-bold text-[#214C6A] font-mono">
@@ -421,14 +461,14 @@ export const ManagerDashboardModal: React.FC<ManagerDashboardModalProps> = ({
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 
                 {/* BLOQUE 3: Los Campeones de la Tienda (Productos con Mayor Rotación) */}
-                <div className="bg-white/80 backdrop-blur-xl border border-white/85 p-5 shadow-[0_8px_24px_rgba(33,76,106,0.08)] flex flex-col justify-between">
+                <div className="bg-white/80 backdrop-blur-xl border border-white/85 p-4 sm:p-5 shadow-[0_8px_24px_rgba(33,76,106,0.08)] flex flex-col justify-between">
                   <div>
-                    <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center justify-between mb-3 gap-2">
                       <h3 className="font-bold text-[#214C6A] text-sm sm:text-base flex items-center gap-2 font-title">
-                        <Award className="w-5 h-5 text-[#EB9D52]" />
-                        Los Campeones de la Tienda
+                        <Award className="w-5 h-5 text-[#EB9D52] shrink-0" />
+                        <span>Los Campeones de la Tienda</span>
                       </h3>
-                      <span className="text-[10px] bg-[#EB9D52] text-[#222E3A] font-black px-2 py-0.5 uppercase shadow-2xs">
+                      <span className="text-[10px] bg-[#EB9D52] text-[#222E3A] font-black px-2 py-0.5 uppercase shadow-2xs whitespace-nowrap">
                         Más Vendidos
                       </span>
                     </div>
@@ -459,27 +499,27 @@ export const ManagerDashboardModal: React.FC<ManagerDashboardModalProps> = ({
                           return (
                             <div 
                               key={champ.id}
-                              className="flex items-center justify-between p-2.5 bg-[#FFF9F0]/80 hover:bg-white backdrop-blur-md border border-white/80 shadow-2xs transition-all"
+                              className="flex items-center justify-between p-2.5 bg-[#FFF9F0]/80 hover:bg-white backdrop-blur-md border border-white/80 shadow-2xs transition-all gap-2"
                             >
-                              <div className="flex items-center gap-3 min-w-0">
+                              <div className="flex items-center gap-2.5 min-w-0 flex-1">
                                 <div className={`w-6 h-6 shrink-0 flex items-center justify-center font-black text-xs border ${medalColor}`}>
                                   {champ.rank}
                                 </div>
-                                <div className="min-w-0">
+                                <div className="min-w-0 flex-1">
                                   <h4 className="text-xs font-bold text-[#214C6A] truncate font-title">
                                     {champ.title}
                                   </h4>
-                                  <span className="text-[10px] text-[#56291D] block">
+                                  <span className="text-[10px] text-[#56291D] block truncate">
                                     {champ.category}
                                   </span>
                                 </div>
                               </div>
 
                               <div className="text-right shrink-0 pl-2">
-                                <div className="text-xs font-black text-[#BC6343] font-mono">
+                                <div className="text-xs font-black text-[#BC6343] font-mono whitespace-nowrap">
                                   {champ.quantitySold} {champ.quantitySold === 1 ? 'und' : 'unds'}
                                 </div>
-                                <span className="text-[10px] font-bold text-[#214C6A]">
+                                <span className="text-[10px] font-bold text-[#214C6A] whitespace-nowrap block">
                                   {formatCOP(champ.totalRevenue)}
                                 </span>
                               </div>
@@ -491,17 +531,17 @@ export const ManagerDashboardModal: React.FC<ManagerDashboardModalProps> = ({
                   </div>
 
                   <div className="pt-3 border-t border-[#214C6A]/10 mt-3 text-[11px] text-[#56291D] flex items-center gap-1.5">
-                    <Flame className="w-3.5 h-3.5 text-[#BC6343]" />
+                    <Flame className="w-3.5 h-3.5 text-[#BC6343] shrink-0" />
                     <span>Mantén siempre suficiente inventario de estos productos.</span>
                   </div>
                 </div>
 
                 {/* BLOQUE 4: Alertas de Inventario y Reabastecimiento ("Semáforo") */}
-                <div className="bg-white/80 backdrop-blur-xl border border-white/85 p-5 shadow-[0_8px_24px_rgba(33,76,106,0.08)] flex flex-col justify-between">
+                <div className="bg-white/80 backdrop-blur-xl border border-white/85 p-4 sm:p-5 shadow-[0_8px_24px_rgba(33,76,106,0.08)] flex flex-col justify-between">
                   <div>
-                    <div className="flex items-center justify-between mb-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                       <h3 className="font-bold text-[#214C6A] text-sm sm:text-base flex items-center gap-2 font-title">
-                        <span className="flex h-3 w-3 relative">
+                        <span className="flex h-3 w-3 relative shrink-0">
                           <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
                             trafficLight.status === 'red' ? 'bg-rose-500' :
                             trafficLight.status === 'yellow' ? 'bg-amber-500' : 'bg-emerald-500'
@@ -511,9 +551,9 @@ export const ManagerDashboardModal: React.FC<ManagerDashboardModalProps> = ({
                             trafficLight.status === 'yellow' ? 'bg-amber-600' : 'bg-emerald-600'
                           }`} />
                         </span>
-                        Semáforo de Inventario
+                        <span>Semáforo de Inventario</span>
                       </h3>
-                      <span className={`text-[10px] font-black px-2 py-0.5 uppercase shadow-2xs ${
+                      <span className={`text-[10px] font-black px-2 py-0.5 uppercase shadow-2xs whitespace-nowrap ${
                         trafficLight.status === 'red' ? 'bg-rose-100/90 text-rose-900 border border-rose-400' :
                         trafficLight.status === 'yellow' ? 'bg-amber-100/90 text-amber-900 border border-amber-400' :
                         'bg-emerald-100/90 text-emerald-900 border border-emerald-400'
@@ -524,7 +564,7 @@ export const ManagerDashboardModal: React.FC<ManagerDashboardModalProps> = ({
                     </div>
 
                     {/* Traffic Light Main Banner with glass backdrop */}
-                    <div className={`p-3.5 border-2 mb-3 backdrop-blur-md shadow-2xs ${
+                    <div className={`p-3 sm:p-3.5 border-2 mb-3 backdrop-blur-md shadow-2xs ${
                       trafficLight.status === 'red' ? 'bg-rose-50/90 border-rose-600 text-rose-950' :
                       trafficLight.status === 'yellow' ? 'bg-amber-50/90 border-amber-600 text-amber-950' :
                       'bg-emerald-50/90 border-emerald-600 text-emerald-950'
@@ -542,13 +582,13 @@ export const ManagerDashboardModal: React.FC<ManagerDashboardModalProps> = ({
                       {trafficLight.criticalProducts.slice(0, 4).map((p) => (
                         <div 
                           key={p.id}
-                          className="flex items-center justify-between p-2 bg-rose-100/80 backdrop-blur-xs border border-rose-300 text-xs shadow-2xs"
+                          className="flex items-center justify-between p-2 bg-rose-100/80 backdrop-blur-xs border border-rose-300 text-xs shadow-2xs gap-2"
                         >
-                          <div className="min-w-0 pr-2">
-                            <strong className="text-rose-950 block truncate font-bold">{p.title}</strong>
+                          <div className="min-w-0 flex-1 pr-2">
+                            <strong className="text-rose-950 block truncate font-bold text-xs">{p.title}</strong>
                             <span className="text-[10px] text-rose-800">Mínimo sugerido: {p.minStock || 5} {p.unit}</span>
                           </div>
-                          <span className="bg-rose-600 text-white font-black px-2 py-0.5 text-xs shrink-0 shadow-2xs">
+                          <span className="bg-rose-600 text-white font-black px-2 py-0.5 text-[10px] sm:text-xs shrink-0 whitespace-nowrap shadow-2xs">
                             {p.stock <= 0 ? 'AGOTADO (0)' : `Queda: ${p.stock}`}
                           </span>
                         </div>
@@ -557,13 +597,13 @@ export const ManagerDashboardModal: React.FC<ManagerDashboardModalProps> = ({
                       {trafficLight.lowStockProducts.slice(0, 3).map((p) => (
                         <div 
                           key={p.id}
-                          className="flex items-center justify-between p-2 bg-amber-100/80 backdrop-blur-xs border border-amber-300 text-xs shadow-2xs"
+                          className="flex items-center justify-between p-2 bg-amber-100/80 backdrop-blur-xs border border-amber-300 text-xs shadow-2xs gap-2"
                         >
-                          <div className="min-w-0 pr-2">
-                            <strong className="text-amber-950 block truncate font-bold">{p.title}</strong>
+                          <div className="min-w-0 flex-1 pr-2">
+                            <strong className="text-amber-950 block truncate font-bold text-xs">{p.title}</strong>
                             <span className="text-[10px] text-amber-800">Stock por debajo del mínimo</span>
                           </div>
-                          <span className="bg-amber-600 text-white font-black px-2 py-0.5 text-xs shrink-0 shadow-2xs">
+                          <span className="bg-amber-600 text-white font-black px-2 py-0.5 text-[10px] sm:text-xs shrink-0 whitespace-nowrap shadow-2xs">
                             {p.stock} unds
                           </span>
                         </div>
@@ -581,12 +621,13 @@ export const ManagerDashboardModal: React.FC<ManagerDashboardModalProps> = ({
                   </div>
 
                   {/* Direct Internal Action (NO WhatsApp) */}
-                  <div className="pt-3 border-t border-[#214C6A]/10 mt-3 flex items-center justify-between">
+                  <div className="pt-3 border-t border-[#214C6A]/10 mt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <span className="text-[10px] text-[#56291D]">
                       Total catálogo: <strong>{products.length} productos</strong>
                     </span>
                     {onOpenInventory && (
                       <button
+                        type="button"
                         onClick={() => {
                           onClose();
                           onOpenInventory();
@@ -594,7 +635,7 @@ export const ManagerDashboardModal: React.FC<ManagerDashboardModalProps> = ({
                         className="flex items-center gap-1 text-xs font-bold text-[#214C6A] hover:text-[#BC6343] cursor-pointer"
                       >
                         <span>Ir a ajustar existencias en Kardex</span>
-                        <ArrowRight className="w-3 h-3" />
+                        <ArrowRight className="w-3 h-3 shrink-0" />
                       </button>
                     )}
                   </div>
@@ -831,16 +872,17 @@ export const ManagerDashboardModal: React.FC<ManagerDashboardModalProps> = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="bg-[#FFF9F0]/90 backdrop-blur-md px-4 sm:px-6 py-3 border-t-2 border-[#214C6A]/20 flex items-center justify-between text-xs text-[#56291D]">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-emerald-700" />
+        <div className="bg-[#FFF9F0]/90 backdrop-blur-md px-3.5 sm:px-6 py-2.5 sm:py-3 border-t-2 border-[#214C6A]/20 flex items-center justify-between text-xs text-[#56291D] shrink-0 gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+            <ShieldCheck className="w-4 h-4 text-emerald-700 shrink-0" />
             <span className="hidden sm:inline">Cifras redondeadas a enteros en Pesos Colombianos (COP) para lectura ágil sin confusiones.</span>
-            <span className="sm:hidden font-bold">Modo Tendero Ágil</span>
+            <span className="sm:hidden font-bold text-[11px] truncate">Modo Tendero Ágil (COP)</span>
           </div>
 
           <button
+            type="button"
             onClick={onClose}
-            className="px-4 py-1.5 bg-[#214C6A] hover:bg-[#1a3d55] text-white font-bold text-xs cursor-pointer shadow-xs"
+            className="px-3.5 py-1.5 bg-[#214C6A] hover:bg-[#1a3d55] text-white font-bold text-xs cursor-pointer shadow-xs whitespace-nowrap shrink-0"
           >
             Volver a la Caja
           </button>
