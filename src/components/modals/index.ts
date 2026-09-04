@@ -15,3 +15,4 @@ export * from './ManagerDashboardModal';
 export * from './LiquidGlassGuideModal';
 export * from './SuppliersModal';
 export * from './StoreInfoModal';
+export * from './BackupStorageModal';

@@ -28,7 +28,8 @@ import {
   ChevronRight,
   Edit3,
   GripHorizontal,
-  Menu
+  Menu,
+  HardDrive
 } from 'lucide-react';
 import { formatCOP, playBeep } from '@/lib/utils';
 import { SaleTransaction, CashShift, ProductItem, StoreInfo } from '@/types';
@@ -53,6 +54,8 @@ interface POSHeaderProps {
   onOpenManagerDashboard?: () => void;
   storeInfo?: StoreInfo;
   onOpenStoreInfo?: () => void;
+  onOpenBackupStorage?: () => void;
+  storageAlertBadge?: boolean;
   showCategoryGallery: boolean;
   onToggleCategoryGallery: () => void;
   quickSearchChips: string[];
@@ -89,6 +92,8 @@ export const POSHeader: React.FC<POSHeaderProps> = ({
   onOpenManagerDashboard,
   storeInfo,
   onOpenStoreInfo,
+  onOpenBackupStorage,
+  storageAlertBadge,
   showCategoryGallery,
   onToggleCategoryGallery,
   quickSearchChips,
@@ -604,6 +609,21 @@ export const POSHeader: React.FC<POSHeaderProps> = ({
                 <span className="font-medium">Datos Tienda</span>
               </button>
             )}
+
+            {/* Módulo Copias, Respaldo y Memoria Segura */}
+            {onOpenBackupStorage && (
+              <button
+                onClick={safeNavClick(onOpenBackupStorage)}
+                className="modern-nav-item relative border-l border-white/15 pl-3 ml-1"
+                title="Copias de Seguridad Maestras y Memoria Segura del POS"
+              >
+                <HardDrive className="w-3.5 h-3.5 text-[#EB9D52]" />
+                <span className="font-medium">Copias & Memoria</span>
+                {storageAlertBadge && (
+                  <span className="absolute top-1.5 right-1 w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                )}
+              </button>
+            )}
           </nav>
 
           {/* Right Carousel Paddle & Fade Edge Mask */}
@@ -879,6 +899,22 @@ export const POSHeader: React.FC<POSHeaderProps> = ({
             >
               <Store className="w-3.5 h-3.5 text-[#EB9D52]" />
               <span>Datos Tienda</span>
+            </button>
+          )}
+
+          {/* 9.1. Copias, Respaldo y Memoria */}
+          {onOpenBackupStorage && (
+            <button
+              type="button"
+              onClick={safeRibbonClick(onOpenBackupStorage)}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold shrink-0 bg-white/10 hover:bg-white/20 text-[#FFF9F0] border border-white/15 transition-all cursor-pointer active:scale-95 relative"
+              title="Copias de Seguridad Maestras y Memoria Segura del POS"
+            >
+              <HardDrive className="w-3.5 h-3.5 text-[#EB9D52]" />
+              <span>Copias & Memoria</span>
+              {storageAlertBadge && (
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+              )}
             </button>
           )}
 
@@ -1610,6 +1646,30 @@ export const POSHeader: React.FC<POSHeaderProps> = ({
                       <div className="min-w-0 flex-1">
                         <div className="font-bold text-xs sm:text-sm text-[#FFF9F0]">Datos de la Tienda & Facturación</div>
                         <div className="text-[10px] text-[#F6E1C6]/80">Nombre, NIT, dirección, teléfono, logo y pie de factura</div>
+                      </div>
+                    </button>
+                  )}
+
+                  {/* Copias de Seguridad & Memoria Segura */}
+                  {onOpenBackupStorage && (
+                    <button
+                      onClick={() => {
+                        setIsMobileMenuOpen(false);
+                        onOpenBackupStorage();
+                      }}
+                      className="w-full p-2.5 rounded-none bg-[#214C6A]/30 hover:bg-[#214C6A]/50 border border-white/15 flex items-center gap-3 transition-all text-left cursor-pointer active:scale-[0.98]"
+                    >
+                      <div className="w-8 h-8 rounded-none bg-[#214C6A] flex items-center justify-center text-[#EB9D52] shrink-0 border border-white/20">
+                        <HardDrive className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="font-bold text-xs sm:text-sm text-[#FFF9F0] flex items-center gap-2">
+                          <span>Copias, Respaldo & Memoria</span>
+                          {storageAlertBadge && (
+                            <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                          )}
+                        </div>
+                        <div className="text-[10px] text-[#F6E1C6]/80">Descargar copia maestra, depurar con consentimiento y restaurar</div>
                       </div>
                     </button>
                   )}

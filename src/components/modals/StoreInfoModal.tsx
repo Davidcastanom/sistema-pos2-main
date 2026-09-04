@@ -18,7 +18,8 @@ import {
   Upload,
   Image as ImageIcon,
   Trash2,
-  Info
+  Info,
+  HardDrive
 } from 'lucide-react';
 
 interface StoreInfoModalProps {
@@ -26,6 +27,7 @@ interface StoreInfoModalProps {
   onClose: () => void;
   storeInfo: StoreInfo;
   onSaveStoreInfo: (newInfo: StoreInfo) => void;
+  onOpenBackupStorage?: () => void;
 }
 
 export const StoreInfoModal: React.FC<StoreInfoModalProps> = ({
@@ -33,6 +35,7 @@ export const StoreInfoModal: React.FC<StoreInfoModalProps> = ({
   onClose,
   storeInfo,
   onSaveStoreInfo,
+  onOpenBackupStorage,
 }) => {
   const [formData, setFormData] = useState<StoreInfo>({ ...storeInfo });
   const [savedSuccess, setSavedSuccess] = useState<boolean>(false);
@@ -542,6 +545,31 @@ export const StoreInfoModal: React.FC<StoreInfoModalProps> = ({
                 </div>
               </div>
             </div>
+
+            {/* Section 4: Copias de Seguridad y Protección de Datos */}
+            {onOpenBackupStorage && (
+              <div className="bg-[#FFF9F0] p-4 rounded-xl border border-[#EB9D52]/40 shadow-xs flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-[#214C6A] text-[#EB9D52] flex items-center justify-center shrink-0">
+                    <HardDrive className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h5 className="text-xs font-bold text-slate-900">Copias de Seguridad & Memoria</h5>
+                    <p className="text-[11px] text-slate-600">Descarga tu respaldo maestro o depura facturas viejas con consentimiento</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onOpenBackupStorage();
+                  }}
+                  className="px-3 py-1.5 bg-[#214C6A] hover:bg-[#1a3d55] text-white text-xs font-bold rounded-lg shrink-0 cursor-pointer shadow-2xs transition-all"
+                >
+                  Abrir Copias
+                </button>
+              </div>
+            )}
           </form>
 
           {/* Right Column: Live Previews (5 cols on lg) */}

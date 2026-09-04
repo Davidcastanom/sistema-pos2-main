@@ -252,3 +252,21 @@ export interface StoreInfo {
   logoUrl?: string;
 }
 
+export interface FullBackupData {
+  version: string;
+  exportDate: string;
+  app: string;
+  storeInfo: StoreInfo;
+  products: ProductItem[];
+  categories: CategoryName[];
+  customers: Customer[];
+  suppliers: Supplier[];
+  supplierOrders: SupplierOrder[];
+  fixedCosts: FixedMonthlyCosts;
+  salesHistory: SaleTransaction[];
+  shiftHistory: CashShift[];
+  currentShift: CashShift | null;
+  quickSearchChips?: string[];
+  favoriteProductIds?: string[];
+}
+

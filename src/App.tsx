@@ -14,7 +14,8 @@ import {
   Supplier,
   ProductSupplierQuote,
   SupplierOrder,
-  StoreInfo
+  StoreInfo,
+  FullBackupData
 } from './types';
 import { INITIAL_PRODUCTS, INITIAL_CUSTOMERS, CATEGORIES, INITIAL_SUPPLIERS } from './data/initialData';
 import { DEFAULT_FIXED_COSTS } from './lib/businessLogic';
@@ -41,7 +42,8 @@ import {
   ManagerDashboardModal,
   LiquidGlassGuideModal,
   SuppliersModal,
-  StoreInfoModal
+  StoreInfoModal,
+  BackupStorageModal
 } from './components';
 import { formatCOP } from './lib/utils';
 import { 
@@ -295,6 +297,7 @@ export default function App() {
   const [supplierModalInitialTab, setSupplierModalInitialTab] = useState<'directory' | 'compare' | 'reorder' | 'orders'>('directory');
   const [supplierModalInitialProductId, setSupplierModalInitialProductId] = useState<string | number | undefined>(undefined);
   const [isStoreInfoModalOpen, setIsStoreInfoModalOpen] = useState<boolean>(false);
+  const [isBackupStorageOpen, setIsBackupStorageOpen] = useState<boolean>(false);
 
   // Centralized Store Information state with persistence
   const [storeInfo, setStoreInfo] = useState<StoreInfo>(() => getSavedStoreInfo());
@@ -1422,6 +1425,52 @@ export default function App() {
     showToast(`Datos del negocio guardados: ${newInfo.name}`, 'success');
   };
 
+  const handleRestoreBackup = (backup: FullBackupData) => {
+    if (backup.products && Array.isArray(backup.products)) {
+      setProducts(backup.products);
+    }
+    if (backup.categories && Array.isArray(backup.categories)) {
+      setCategories(backup.categories);
+    }
+    if (backup.customers && Array.isArray(backup.customers)) {
+      setCustomers(backup.customers);
+    }
+    if (backup.suppliers && Array.isArray(backup.suppliers)) {
+      setSuppliers(backup.suppliers);
+    }
+    if (backup.supplierOrders && Array.isArray(backup.supplierOrders)) {
+      setSupplierOrders(backup.supplierOrders);
+    }
+    if (backup.fixedCosts && Array.isArray(backup.fixedCosts)) {
+      setFixedCosts(backup.fixedCosts);
+    }
+    if (backup.salesHistory && Array.isArray(backup.salesHistory)) {
+      setSalesHistory(backup.salesHistory);
+    }
+    if (backup.shiftHistory && Array.isArray(backup.shiftHistory)) {
+      setShiftHistory(backup.shiftHistory);
+    }
+    if (backup.currentShift !== undefined) {
+      setCurrentShift(backup.currentShift);
+    }
+    if (backup.storeInfo) {
+      setStoreInfo(backup.storeInfo);
+      localStorage.setItem('pos_store_info_v1', JSON.stringify(backup.storeInfo));
+    }
+    if (backup.quickSearchChips && Array.isArray(backup.quickSearchChips)) {
+      setQuickSearchChips(backup.quickSearchChips);
+    }
+    if (backup.favoriteProductIds && Array.isArray(backup.favoriteProductIds)) {
+      setFavoriteProductIds(backup.favoriteProductIds);
+    }
+    showToast(`¡Copia de seguridad restaurada con éxito!`, 'success');
+  };
+
+  const handlePruneSales = (keptSales: SaleTransaction[], prunedCount: number) => {
+    setSalesHistory(keptSales);
+    showToast(`Se depuraron ${prunedCount} facturas antiguas. Memoria del POS optimizada.`, 'success');
+  };
+
   const handleAddQuickAmountProduct = (quickProduct: ProductItem) => {
     handleAddToCart(quickProduct);
     showToast(`"${quickProduct.title}" agregado a la cuenta por ${formatCOP(quickProduct.price)}`);
@@ -1489,6 +1538,8 @@ export default function App() {
           onOpenManagerDashboard={() => setIsManagerDashboardOpen(true)}
           storeInfo={storeInfo}
           onOpenStoreInfo={() => setIsStoreInfoModalOpen(true)}
+          onOpenBackupStorage={() => setIsBackupStorageOpen(true)}
+          storageAlertBadge={salesHistory.length >= 250}
           showCategoryGallery={showCategoryGallery}
           onToggleCategoryGallery={() => setShowCategoryGallery(!showCategoryGallery)}
           quickSearchChips={quickSearchChips}
@@ -1893,6 +1944,27 @@ export default function App() {
         onClose={() => setIsStoreInfoModalOpen(false)}
         storeInfo={storeInfo}
         onSaveStoreInfo={handleSaveStoreInfo}
+        onOpenBackupStorage={() => setIsBackupStorageOpen(true)}
+      />
+
+      {/* Backup, Storage Health & Selective Pruning with Consent */}
+      <BackupStorageModal
+        isOpen={isBackupStorageOpen}
+        onClose={() => setIsBackupStorageOpen(false)}
+        products={products}
+        categories={categories}
+        customers={customers}
+        suppliers={suppliers}
+        supplierOrders={supplierOrders}
+        fixedCosts={fixedCosts}
+        salesHistory={salesHistory}
+        shiftHistory={shiftHistory}
+        currentShift={currentShift}
+        storeInfo={storeInfo}
+        quickSearchChips={quickSearchChips}
+        favoriteProductIds={favoriteProductIds}
+        onRestoreBackup={handleRestoreBackup}
+        onPruneSales={handlePruneSales}
       />
     </div>
   );
